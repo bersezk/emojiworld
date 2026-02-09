@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST' && !sessionId) {
     try {
       const WorldClass = getWorld();
-      const newSessionId = `world-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const newSessionId = `world-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const world = new WorldClass(defaultConfig);
       world.initialize();
       worldInstances.set(newSessionId, world);
