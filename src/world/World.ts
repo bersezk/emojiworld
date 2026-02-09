@@ -1,5 +1,5 @@
 import { Grid, Position } from './Grid';
-import { Citizen, CitizenCategory } from '../entities/Citizen';
+import { Citizen, CitizenCategory, BUILDING_RECIPES } from '../entities/Citizen';
 import { Resource } from '../entities/Resource';
 import { Landmark, LandmarkType } from '../entities/Landmark';
 
@@ -41,6 +41,8 @@ export class World {
   private config: WorldConfig;
   private tickCount: number;
   private running: boolean;
+  private totalBuildings: number;
+  private totalBirths: number;
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -50,6 +52,8 @@ export class World {
     this.landmarks = [];
     this.tickCount = 0;
     this.running = false;
+    this.totalBuildings = 0;
+    this.totalBirths = 0;
   }
 
   initialize(): void {
@@ -165,7 +169,7 @@ export class World {
         citizens: this.citizens,
         resources: this.resources,
         landmarks: this.landmarks
-      });
+      }, this.tickCount);
 
       // Check for resource collection
       const resourcesAtPos = this.resources.filter(
@@ -174,6 +178,35 @@ export class World {
 
       for (const resource of resourcesAtPos) {
         citizen.collectResource(resource);
+      }
+
+      // Check for completed building
+      if (citizen.buildingTarget && !citizen.isBuilding && citizen.buildingProgress === 0) {
+        // Citizen just finished building in previous tick
+        const recipe = BUILDING_RECIPES[citizen.buildingTarget];
+        if (this.canBuildAt(citizen.position.x, citizen.position.y)) {
+          this.addLandmark(new Landmark(
+            { x: citizen.position.x, y: citizen.position.y },
+            citizen.buildingTarget.toLowerCase() as LandmarkType,
+            recipe.symbol
+          ));
+          this.totalBuildings++;
+        }
+        citizen.buildingTarget = null;
+      }
+
+      // Check for breeding opportunity
+      if (citizen.state === 'seeking_mate' && citizen.breedingPartner) {
+        const partner = citizen.breedingPartner;
+        if (citizen.isNearby(partner) && partner.breedingPartner === citizen) {
+          // Both want to breed with each other and are nearby
+          const offspring = this.createOffspring(citizen, partner);
+          if (offspring) {
+            this.citizens.push(offspring);
+            citizen.breed(partner, this.tickCount);
+            this.totalBirths++;
+          }
+        }
       }
     }
 
@@ -223,12 +256,102 @@ export class World {
     citizens: number;
     resources: number;
     resourcesCollected: number;
+    buildings: number;
+    births: number;
+    growthRate: number;
   } {
     return {
       tick: this.tickCount,
       citizens: this.citizens.length,
       resources: this.resources.filter(r => !r.collected).length,
-      resourcesCollected: this.resources.filter(r => r.collected).length
+      resourcesCollected: this.resources.filter(r => r.collected).length,
+      buildings: this.totalBuildings,
+      births: this.totalBirths,
+      growthRate: this.tickCount > 0 ? this.totalBirths / this.tickCount : 0
     };
+  }
+
+  canBuildAt(x: number, y: number): boolean {
+    const pos = { x, y };
+    
+    // Check if position is valid
+    if (!this.grid.isValidPosition(pos)) return false;
+    
+    // Check if position is already occupied by a landmark
+    const occupied = this.landmarks.some(l => 
+      l.position.x === x && l.position.y === y
+    );
+    
+    return !occupied;
+  }
+
+  addLandmark(landmark: Landmark): void {
+    this.landmarks.push(landmark);
+  }
+
+  createOffspring(parent1: Citizen, parent2: Citizen): Citizen | null {
+    // Find empty adjacent cell
+    const offspringPos = this.findEmptyAdjacentCell(parent1.position);
+    if (!offspringPos) return null;
+    
+    // Choose emoji from one of the parents randomly
+    const emoji = Math.random() < 0.5 ? parent1.emoji : parent2.emoji;
+    
+    // Choose category from parents
+    const category = Math.random() < 0.5 ? parent1.category : parent2.category;
+    
+    // Create offspring
+    const offspring = new Citizen(
+      `citizen-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      emoji,
+      offspringPos,
+      category,
+      this.config.citizens.movementSpeed,
+      this.config.citizens.visionRange
+    );
+    
+    // Offspring starts with lower energy and higher needs
+    offspring.energy = 50;
+    offspring.needs.hunger = 30;
+    offspring.needs.energy = 50;
+    offspring.needs.social = 40;
+    offspring.age = 0;
+    
+    return offspring;
+  }
+
+  findEmptyAdjacentCell(position: Position): Position | null {
+    const offsets = [
+      { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+      { x: -1, y: 0 },                    { x: 1, y: 0 },
+      { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
+    ];
+    
+    for (const offset of offsets) {
+      const pos = { x: position.x + offset.x, y: position.y + offset.y };
+      
+      if (!this.grid.isValidPosition(pos)) continue;
+      
+      // Check if position is already occupied
+      const occupied = this.landmarks.some(l => l.position.x === pos.x && l.position.y === pos.y && !l.isWalkable()) ||
+                       this.citizens.some(c => c.position.x === pos.x && c.position.y === pos.y);
+      
+      if (!occupied) {
+        return pos;
+      }
+    }
+    
+    return null;
+  }
+
+  findNearbyMates(citizen: Citizen, range: number): Citizen[] {
+    return this.citizens.filter(c => 
+      c.id !== citizen.id && 
+      Grid.distance(citizen.position, c.position) <= range
+    );
+  }
+
+  getPopulationCount(): number {
+    return this.citizens.length;
   }
 }

@@ -93,7 +93,7 @@ class EmojiWorldApp {
         this.pause();
         this.sessionId = null;
         this.displayWelcome();
-        this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0 });
+        this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0, buildings: 0, births: 0, growthRate: 0 });
     }
     
     async tick() {
@@ -160,12 +160,35 @@ class EmojiWorldApp {
                 }
             });
         });
+        
+        // Draw building indicators (if data available)
+        if (worldData.buildingCitizens) {
+            this.ctx.font = `${Math.min(cellWidth, cellHeight) * 0.5}px Arial`;
+            worldData.buildingCitizens.forEach(pos => {
+                const centerX = pos.x * cellWidth + cellWidth / 2;
+                const centerY = pos.y * cellHeight + cellHeight / 2 - cellHeight * 0.3;
+                this.ctx.fillText('🔨', centerX, centerY);
+            });
+        }
+        
+        // Draw breeding indicators (if data available)
+        if (worldData.breedingCitizens) {
+            this.ctx.font = `${Math.min(cellWidth, cellHeight) * 0.5}px Arial`;
+            worldData.breedingCitizens.forEach(pos => {
+                const centerX = pos.x * cellWidth + cellWidth / 2;
+                const centerY = pos.y * cellHeight + cellHeight / 2 - cellHeight * 0.3;
+                this.ctx.fillText('❤️', centerX, centerY);
+            });
+        }
     }
     
     updateStats(data) {
         document.getElementById('population').textContent = data.population || 0;
         document.getElementById('resources').textContent = data.resources || 0;
         document.getElementById('landmarks').textContent = data.landmarks || 0;
+        document.getElementById('buildings').textContent = data.buildings || 0;
+        document.getElementById('births').textContent = data.births || 0;
+        document.getElementById('growth-rate').textContent = (data.growthRate || 0).toFixed(4);
         document.getElementById('ticks').textContent = data.ticks || 0;
     }
 }
