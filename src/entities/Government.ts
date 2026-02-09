@@ -102,6 +102,7 @@ export class Government {
   setLeader(citizen: Citizen): void {
     this.leader = citizen;
     this.addOfficial(citizen.id);
+    // Note: The caller should set citizen.governmentRole to Role.LEADER
   }
 
   addToTreasury(resource: string, amount: number): void {

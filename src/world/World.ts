@@ -4,6 +4,9 @@ import { Resource } from '../entities/Resource';
 import { Landmark, LandmarkType } from '../entities/Landmark';
 import { Government, GovernmentType, Role } from '../entities/Government';
 
+// Government constants
+const CITIZEN_RECRUITMENT_PROBABILITY = 0.3; // 30% chance to join nearby government
+
 export interface WorldConfig {
   world: {
     width: number;
@@ -500,7 +503,7 @@ export class World {
       });
       
       for (const citizen of nearbyCitizens) {
-        if (Math.random() < 0.3) { // 30% chance to join
+        if (Math.random() < CITIZEN_RECRUITMENT_PROBABILITY) {
           government.addCitizen(citizen.id);
           citizen.joinGovernment(government.id, Role.CITIZEN);
         }

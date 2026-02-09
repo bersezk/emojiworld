@@ -95,6 +95,10 @@ export const BREEDING_REQUIREMENTS = {
   maxPopulation: 100
 };
 
+// Movement and government constants
+const ROAD_SPEED_BOOST_THRESHOLD = 0.5; // Minimum movement threshold on roads
+const REBELLION_CHANCE_PER_TICK = 0.01; // 1% chance per tick when conditions met
+
 export class Citizen {
   public id: string;
   public emoji: string;
@@ -208,7 +212,7 @@ export class Citizen {
 
     // Move towards target if exists (move faster on roads)
     this.moveCounter++;
-    const moveThreshold = onRoad ? Math.max(0.5, this.movementSpeed / 2) : this.movementSpeed;
+    const moveThreshold = onRoad ? Math.max(ROAD_SPEED_BOOST_THRESHOLD, this.movementSpeed / 2) : this.movementSpeed;
     if (this.moveCounter >= moveThreshold) {
       this.moveCounter = 0;
       this.move(grid, allEntities.landmarks);
@@ -425,7 +429,7 @@ export class Citizen {
       const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL', 'HORIZONTAL_ROAD', 'VERTICAL_ROAD'];
       this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
     } else if (rand < 0.95) {
-      // 25% chance of intersection
+      // 25% chance of intersection (25% of remaining 30%)
       this.buildingTarget = 'INTERSECTION';
     } else {
       // 5% chance of government buildings
@@ -650,6 +654,6 @@ export class Citizen {
     return this.governmentId !== null && 
            this.satisfaction < 20 && 
            this.loyaltyToGov < 20 && 
-           Math.random() < 0.01; // 1% chance per tick when conditions met
+           Math.random() < REBELLION_CHANCE_PER_TICK;
   }
 }
