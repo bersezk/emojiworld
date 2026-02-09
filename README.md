@@ -9,7 +9,14 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 ### 🖥️ Dual Interface Support
 
 - **Console Version**: Terminal-based simulation perfect for servers and CLI enthusiasts
-- **Web Version**: Beautiful browser-based interface with real-time visualization and interactive controls
+- **Web Version**: Beautiful browser-based interface with:
+  - Stunning gradient backgrounds with floating emoji particles
+  - Animated stat cards with real-time updates
+  - Glow effects on world entities for enhanced visibility
+  - Responsive design that works on mobile and desktop
+  - Interactive controls with smooth transitions
+  - Welcome screen and loading animations
+  - Error notifications for better UX
 
 ## Features
 

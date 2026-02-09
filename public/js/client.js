@@ -11,6 +11,23 @@ class EmojiWorldClient {
         
         this.setupEventListeners();
         this.resizeCanvas();
+        this.showWelcomeAnimation();
+    }
+
+    showWelcomeAnimation() {
+        // Draw welcome screen on canvas
+        this.ctx.fillStyle = '#0f0f1e';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.font = 'bold 48px sans-serif';
+        this.ctx.fillStyle = '#667eea';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('🌍 EmojiWorld', this.canvas.width / 2, this.canvas.height / 2 - 40);
+        
+        this.ctx.font = '24px sans-serif';
+        this.ctx.fillStyle = '#a78bfa';
+        this.ctx.fillText('Click "Start Simulation" to begin', this.canvas.width / 2, this.canvas.height / 2 + 20);
     }
 
     setupEventListeners() {
@@ -33,32 +50,57 @@ class EmojiWorldClient {
 
     resizeCanvas() {
         const container = this.canvas.parentElement;
-        const maxWidth = container.clientWidth - 40;
+        const maxWidth = container.clientWidth - 60;
         if (this.canvas.width > maxWidth) {
             this.canvas.style.width = maxWidth + 'px';
             this.canvas.style.height = 'auto';
         }
     }
 
+    showLoading(show) {
+        const overlay = document.getElementById('loading-overlay');
+        if (show) {
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
+    }
+
     async start() {
         if (this.running) return;
         
-        if (!this.sessionId) {
-            // Initialize new world
-            const response = await fetch('/api/world', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
-            const data = await response.json();
-            this.sessionId = data.sessionId;
+        this.showLoading(true);
+        
+        try {
+            if (!this.sessionId) {
+                // Initialize new world
+                const response = await fetch('/api/world', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create world');
+                }
+                
+                const data = await response.json();
+                this.sessionId = data.sessionId;
+            }
+
+            this.running = true;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+
+            this.intervalId = setInterval(() => this.tick(), this.tickRate);
+            
+            // Hide loading after first tick
+            setTimeout(() => this.showLoading(false), 500);
+        } catch (error) {
+            console.error('Error starting simulation:', error);
+            this.showLoading(false);
+            this.showError('Failed to start simulation. Please try again.');
         }
-
-        this.running = true;
-        document.getElementById('start-btn').disabled = true;
-        document.getElementById('pause-btn').disabled = false;
-
-        this.intervalId = setInterval(() => this.tick(), this.tickRate);
     }
 
     pause() {
@@ -76,15 +118,44 @@ class EmojiWorldClient {
         this.pause();
         this.sessionId = null;
         
-        // Clear canvas
-        this.ctx.fillStyle = '#000';
+        // Show loading
+        this.showLoading(true);
+        
+        // Clear canvas with animation
+        this.ctx.fillStyle = '#0f0f1e';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Reset stats
-        document.getElementById('tick-count').textContent = '0';
-        document.getElementById('citizen-count').textContent = '0';
-        document.getElementById('resource-count').textContent = '0';
-        document.getElementById('collected-count').textContent = '0';
+        // Reset stats with animation
+        this.animateStatReset('tick-count', 0);
+        this.animateStatReset('citizen-count', 0);
+        this.animateStatReset('resource-count', 0);
+        this.animateStatReset('collected-count', 0);
+        
+        setTimeout(() => {
+            this.showWelcomeAnimation();
+            this.showLoading(false);
+        }, 300);
+    }
+
+    animateStatReset(elementId, targetValue) {
+        const element = document.getElementById(elementId);
+        const currentValue = parseInt(element.textContent) || 0;
+        const duration = 300;
+        const steps = 10;
+        const stepValue = (currentValue - targetValue) / steps;
+        let step = 0;
+        
+        const animate = () => {
+            step++;
+            const newValue = Math.round(currentValue - (stepValue * step));
+            element.textContent = Math.max(targetValue, newValue);
+            
+            if (step < steps) {
+                setTimeout(animate, duration / steps);
+            }
+        };
+        
+        animate();
     }
 
     async tick() {
@@ -96,9 +167,7 @@ class EmojiWorldClient {
             });
             
             if (!response.ok) {
-                console.error('Tick failed:', response.statusText);
-                this.pause();
-                return;
+                throw new Error('Tick failed: ' + response.statusText);
             }
 
             const worldState = await response.json();
@@ -107,6 +176,7 @@ class EmojiWorldClient {
         } catch (error) {
             console.error('Error during tick:', error);
             this.pause();
+            this.showError('Simulation error. Please reset and try again.');
         }
     }
 
@@ -114,47 +184,134 @@ class EmojiWorldClient {
         const { grid, citizens, resources, landmarks } = worldState;
         
         // Clear canvas
-        this.ctx.fillStyle = '#000';
+        this.ctx.fillStyle = '#0f0f1e';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // Draw grid lines (subtle)
+        this.ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
+        this.ctx.lineWidth = 1;
+        
+        for (let x = 0; x < grid.width; x += 5) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x * this.cellSize, 0);
+            this.ctx.lineTo(x * this.cellSize, grid.height * this.cellSize);
+            this.ctx.stroke();
+        }
+        
+        for (let y = 0; y < grid.height; y += 5) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y * this.cellSize);
+            this.ctx.lineTo(grid.width * this.cellSize, y * this.cellSize);
+            this.ctx.stroke();
+        }
+
         // Set font for rendering
-        this.ctx.font = '14px monospace';
+        this.ctx.font = 'bold 14px monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
 
-        // Render landmarks
+        // Render landmarks with glow
         landmarks.forEach(landmark => {
-            this.renderEntity(landmark.position, landmark.character, '#888');
+            this.renderEntityWithGlow(landmark.position, landmark.character, '#888888', 3);
         });
 
-        // Render resources
+        // Render resources with glow
         resources.forEach(resource => {
             if (!resource.collected) {
-                this.renderEntity(resource.position, resource.character, '#4CAF50');
+                this.renderEntityWithGlow(resource.position, resource.character, '#4CAF50', 5);
             }
         });
 
-        // Render citizens
+        // Render citizens with stronger glow
         citizens.forEach(citizen => {
-            this.renderEntity(citizen.position, citizen.emoji, '#FFF');
+            this.renderEntityWithGlow(citizen.position, citizen.emoji, '#FFFFFF', 8);
         });
     }
 
-    renderEntity(position, character, color) {
+    renderEntityWithGlow(position, character, color, glowSize) {
         const x = position.x * this.cellSize + this.cellSize / 2;
         const y = position.y * this.cellSize + this.cellSize / 2;
         
+        // Add glow effect
+        if (glowSize > 0) {
+            this.ctx.shadowColor = color;
+            this.ctx.shadowBlur = glowSize;
+        }
+        
         this.ctx.fillStyle = color;
         this.ctx.fillText(character, x, y);
+        
+        // Reset shadow
+        this.ctx.shadowBlur = 0;
     }
 
     updateStats(stats) {
-        document.getElementById('tick-count').textContent = stats.tick;
-        document.getElementById('citizen-count').textContent = stats.citizens;
-        document.getElementById('resource-count').textContent = stats.resources;
-        document.getElementById('collected-count').textContent = stats.resourcesCollected;
+        this.animateStatUpdate('tick-count', stats.tick);
+        this.animateStatUpdate('citizen-count', stats.citizens);
+        this.animateStatUpdate('resource-count', stats.resources);
+        this.animateStatUpdate('collected-count', stats.resourcesCollected);
+    }
+
+    animateStatUpdate(elementId, newValue) {
+        const element = document.getElementById(elementId);
+        const oldValue = parseInt(element.textContent) || 0;
+        
+        if (oldValue !== newValue) {
+            element.style.transform = 'scale(1.2)';
+            element.textContent = newValue;
+            
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 200);
+        }
+    }
+
+    showError(message) {
+        // Create error notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            max-width: 300px;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.innerHTML = `
+            <strong>⚠️ Error</strong><br>
+            ${message}
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
     }
 }
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(400px); opacity: 0; }
+    }
+    .stat-value {
+        transition: transform 0.2s ease;
+    }
+`;
+document.head.appendChild(style);
 
 // Initialize client when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
