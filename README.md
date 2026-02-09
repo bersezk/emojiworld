@@ -4,7 +4,12 @@ An autonomous 2D world simulation featuring emoji AI citizens, symbol-based land
 
 ## Overview
 
-EmojiWorld is a console-based 2D simulation where emoji characters act as autonomous agents with their own needs, behaviors, and decision-making capabilities. Watch as citizens wander, seek resources, socialize, and interact with their environment in real-time!
+EmojiWorld is a console-based and web-based 2D simulation where emoji characters act as autonomous agents with their own needs, behaviors, and decision-making capabilities. Watch as citizens wander, seek resources, socialize, and interact with their environment in real-time!
+
+### 🖥️ Dual Interface Support
+
+- **Console Version**: Terminal-based simulation perfect for servers and CLI enthusiasts
+- **Web Version**: Beautiful browser-based interface with real-time visualization and interactive controls
 
 ## Features
 
@@ -57,15 +62,49 @@ npm run build
 
 ## Usage
 
-### Running the Simulation
+### Running Locally
 
-Start the simulation:
+#### Console Version
+
+Start the console-based simulation:
 ```bash
 npm start
 ```
 
 Stop the simulation:
 - Press `Ctrl+C` to gracefully stop and view final statistics
+
+#### Web Version (Local Development)
+
+You can also run the web version locally using a simple HTTP server:
+
+```bash
+npm run build
+npx serve public
+```
+
+Then open your browser to `http://localhost:3000`
+
+### Deploying to Vercel
+
+The application is configured for easy deployment to Vercel:
+
+1. Install Vercel CLI (if not already installed):
+```bash
+npm install -g vercel
+```
+
+2. Deploy to Vercel:
+```bash
+vercel
+```
+
+Or simply push to GitHub and connect your repository to Vercel:
+- Go to [Vercel](https://vercel.com)
+- Import your GitHub repository
+- Vercel will automatically detect the configuration and deploy
+
+The web interface will be available at your Vercel URL (e.g., `https://emojiworld.vercel.app`)
 
 ### Quick Development Run
 
