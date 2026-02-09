@@ -1,0 +1,38 @@
+{
+  "world": {
+    "width": 80,
+    "height": 24,
+    "tickRate": 200
+  },
+  "citizens": {
+    "initialCount": 10,
+    "emojiCategories": {
+      "people": ["🧑", "👨", "👩", "🧒", "👴", "👵"],
+      "animals": ["🐕", "🐈", "🐦", "🐰", "🐻", "🦊"],
+      "food": ["🍎", "🍌", "🍕", "🍔", "🍞", "🥕"]
+    },
+    "movementSpeed": 1,
+    "visionRange": 5,
+    "needsDecayRate": 0.1
+  },
+  "landmarks": {
+    "types": {
+      "home": "⌂",
+      "market": "🏪",
+      "park": "🏞️",
+      "boundary": "#"
+    },
+    "initialCount": 8
+  },
+  "resources": {
+    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "initialCount": 30,
+    "respawnRate": 0.01,
+    "maxPerType": 50
+  },
+  "rendering": {
+    "showStats": true,
+    "clearConsole": true,
+    "frameSkip": 1
+  }
+}
