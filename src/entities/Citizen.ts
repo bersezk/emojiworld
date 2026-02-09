@@ -4,7 +4,7 @@ import { Landmark } from './Landmark';
 
 export type CitizenState = 'wandering' | 'seeking_resource' | 'seeking_shelter' | 'resting' | 'socializing' | 'building' | 'seeking_mate';
 export type CitizenCategory = 'people' | 'animals' | 'food';
-export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL';
+export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL' | 'HORIZONTAL_ROAD' | 'VERTICAL_ROAD' | 'INTERSECTION';
 
 export interface CitizenNeeds {
   hunger: number;      // 0-100
@@ -43,6 +43,21 @@ export const BUILDING_RECIPES: Record<BuildingType, BuildingRecipe> = {
     symbol: '█', 
     resources: ['W', 'A', 'L'], 
     buildTime: 5 
+  },
+  HORIZONTAL_ROAD: {
+    symbol: '=',
+    resources: ['R', 'O', 'A', 'D'],
+    buildTime: 3
+  },
+  VERTICAL_ROAD: {
+    symbol: '║',
+    resources: ['R', 'O', 'A', 'D'],
+    buildTime: 3
+  },
+  INTERSECTION: {
+    symbol: '╬',
+    resources: ['R', 'O', 'A', 'D', 'X'],
+    buildTime: 4
   }
 };
 
@@ -128,13 +143,17 @@ export class Citizen {
     // Increment age
     this.age++;
 
+    // Check if on a road for energy bonus
+    const onRoad = this.isOnRoad(allEntities.landmarks);
+    const energyDecay = onRoad ? 0.015 : 0.03; // 50% less energy on roads
+
     // Decay needs
     this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
     this.needs.energy = Math.max(0, this.needs.energy - 0.05);
     this.needs.social = Math.max(0, this.needs.social - 0.08);
 
-    // Decay energy
-    this.energy = Math.max(0, this.energy - 0.03);
+    // Decay energy (reduced on roads)
+    this.energy = Math.max(0, this.energy - energyDecay);
 
     // Handle building progress
     if (this.isBuilding) {
@@ -145,12 +164,22 @@ export class Citizen {
     // Decide on action based on state and needs
     this.decideAction(grid, allEntities, tickCount);
 
-    // Move towards target if exists
+    // Move towards target if exists (move faster on roads)
     this.moveCounter++;
-    if (this.moveCounter >= this.movementSpeed) {
+    const moveThreshold = onRoad ? Math.max(0.5, this.movementSpeed / 2) : this.movementSpeed;
+    if (this.moveCounter >= moveThreshold) {
       this.moveCounter = 0;
       this.move(grid, allEntities.landmarks);
     }
+  }
+
+  private isOnRoad(landmarks: Landmark[]): boolean {
+    for (const landmark of landmarks) {
+      if (landmark.position.x === this.position.x && landmark.position.y === this.position.y) {
+        return landmark.isRoad();
+      }
+    }
+    return false;
   }
 
   private decideAction(grid: Grid, entities: { citizens: Citizen[], resources: Resource[], landmarks: Landmark[] }, tickCount: number): void {
@@ -348,7 +377,7 @@ export class Citizen {
     if (this.buildingTarget) return; // Already have a plan
     
     // Randomly choose a building type
-    const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL'];
+    const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL', 'HORIZONTAL_ROAD', 'VERTICAL_ROAD', 'INTERSECTION'];
     this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
   }
 
