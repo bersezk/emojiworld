@@ -142,6 +142,15 @@ module.exports = async function handler(req, res) {
         display[y][x] = citizen.emoji;
       }
 
+      // Collect building and breeding citizens
+      const buildingCitizens = citizens
+        .filter(c => c.isBuilding)
+        .map(c => ({ x: c.position.x, y: c.position.y }));
+      
+      const breedingCitizens = citizens
+        .filter(c => c.state === 'seeking_mate' && c.breedingPartner)
+        .map(c => ({ x: c.position.x, y: c.position.y }));
+
       const worldState = {
         width: width,
         height: height,
@@ -152,7 +161,9 @@ module.exports = async function handler(req, res) {
         buildings: stats.buildings || 0,
         births: stats.births || 0,
         growthRate: stats.growthRate || 0,
-        ticks: stats.tick
+        ticks: stats.tick,
+        buildingCitizens: buildingCitizens,
+        breedingCitizens: breedingCitizens
       };
 
       res.status(200).json(worldState);

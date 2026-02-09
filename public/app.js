@@ -160,6 +160,26 @@ class EmojiWorldApp {
                 }
             });
         });
+        
+        // Draw building indicators (if data available)
+        if (worldData.buildingCitizens) {
+            this.ctx.font = `${Math.min(cellWidth, cellHeight) * 0.5}px Arial`;
+            worldData.buildingCitizens.forEach(pos => {
+                const centerX = pos.x * cellWidth + cellWidth / 2;
+                const centerY = pos.y * cellHeight + cellHeight / 2 - cellHeight * 0.3;
+                this.ctx.fillText('🔨', centerX, centerY);
+            });
+        }
+        
+        // Draw breeding indicators (if data available)
+        if (worldData.breedingCitizens) {
+            this.ctx.font = `${Math.min(cellWidth, cellHeight) * 0.5}px Arial`;
+            worldData.breedingCitizens.forEach(pos => {
+                const centerX = pos.x * cellWidth + cellWidth / 2;
+                const centerY = pos.y * cellHeight + cellHeight / 2 - cellHeight * 0.3;
+                this.ctx.fillText('❤️', centerX, centerY);
+            });
+        }
     }
     
     updateStats(data) {
