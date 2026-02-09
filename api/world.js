@@ -105,29 +105,51 @@ module.exports = async function handler(req, res) {
     try {
       world.tick();
 
+      const grid = world.getGrid();
+      const width = grid.getWidth();
+      const height = grid.getHeight();
+      const citizens = world.getCitizens();
+      const resources = world.getResources();
+      const landmarks = world.getLandmarks();
+      const stats = world.getStats();
+
+      // Create display grid matching the frontend expectations
+      const display = [];
+      for (let y = 0; y < height; y++) {
+        display[y] = [];
+        for (let x = 0; x < width; x++) {
+          display[y][x] = ' ';
+        }
+      }
+
+      // Place landmarks first (base layer)
+      for (const landmark of landmarks) {
+        const { x, y } = landmark.position;
+        display[y][x] = landmark.character;
+      }
+
+      // Place resources (middle layer)
+      for (const resource of resources) {
+        if (!resource.collected) {
+          const { x, y } = resource.position;
+          display[y][x] = resource.character;
+        }
+      }
+
+      // Place citizens (top layer)
+      for (const citizen of citizens) {
+        const { x, y } = citizen.position;
+        display[y][x] = citizen.emoji;
+      }
+
       const worldState = {
-        grid: {
-          width: world.getGrid().getWidth(),
-          height: world.getGrid().getHeight()
-        },
-        citizens: world.getCitizens().map(c => ({
-          id: c.id,
-          emoji: c.emoji,
-          position: c.position,
-          state: c.state,
-          needs: c.needs
-        })),
-        resources: world.getResources().map(r => ({
-          position: r.position,
-          character: r.character,
-          collected: r.collected
-        })),
-        landmarks: world.getLandmarks().map(l => ({
-          position: l.position,
-          character: l.character,
-          type: l.type
-        })),
-        stats: world.getStats()
+        width: width,
+        height: height,
+        grid: display,
+        population: citizens.length,
+        resources: resources.filter(r => !r.collected).length,
+        landmarks: landmarks.filter(l => l.type !== 'boundary').length,
+        ticks: stats.tick
       };
 
       res.status(200).json(worldState);
