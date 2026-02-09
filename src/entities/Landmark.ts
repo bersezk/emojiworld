@@ -1,6 +1,6 @@
 import { Position } from '../world/Grid';
 
-export type LandmarkType = 'home' | 'market' | 'park' | 'boundary';
+export type LandmarkType = 'home' | 'market' | 'park' | 'boundary' | 'storage' | 'meeting' | 'farm' | 'wall';
 
 export class Landmark {
   public position: Position;

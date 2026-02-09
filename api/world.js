@@ -149,6 +149,9 @@ module.exports = async function handler(req, res) {
         population: citizens.length,
         resources: resources.filter(r => !r.collected).length,
         landmarks: landmarks.filter(l => l.type !== 'boundary').length,
+        buildings: stats.buildings || 0,
+        births: stats.births || 0,
+        growthRate: stats.growthRate || 0,
         ticks: stats.tick
       };
 
