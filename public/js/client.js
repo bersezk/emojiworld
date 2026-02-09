@@ -8,6 +8,7 @@ class EmojiWorldClient {
         this.sessionId = null;
         this.tickRate = 200;
         this.cellSize = 16;
+        this.consecutiveErrors = 0;
         
         this.setupEventListeners();
         this.resizeCanvas();
@@ -167,65 +168,109 @@ class EmojiWorldClient {
             });
             
             if (!response.ok) {
-                throw new Error('Tick failed: ' + response.statusText);
+                const errorData = await response.json().catch(() => ({}));
+                
+                // Check if error is recoverable
+                if (errorData.recoverable) {
+                    console.warn('Recoverable simulation error:', errorData.details);
+                    // Continue simulation despite error
+                    return;
+                } else {
+                    throw new Error(errorData.details || response.statusText);
+                }
             }
 
             const worldState = await response.json();
             this.render(worldState);
             this.updateStats(worldState.stats);
+            this.consecutiveErrors = 0; // Reset error counter on success
         } catch (error) {
             console.error('Error during tick:', error);
-            this.pause();
-            this.showError('Simulation error. Please reset and try again.');
+            this.consecutiveErrors = (this.consecutiveErrors || 0) + 1;
+            
+            // Only stop after multiple consecutive errors
+            if (this.consecutiveErrors >= 3) {
+                this.pause();
+                this.showError(`Simulation stopped after ${this.consecutiveErrors} errors. Please reset and try again.`);
+                this.consecutiveErrors = 0;
+            }
         }
     }
 
     render(worldState) {
-        const { grid, citizens, resources, landmarks } = worldState;
-        
-        // Clear canvas
-        this.ctx.fillStyle = '#0f0f1e';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Draw grid lines (subtle)
-        this.ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
-        this.ctx.lineWidth = 1;
-        
-        for (let x = 0; x < grid.width; x += 5) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x * this.cellSize, 0);
-            this.ctx.lineTo(x * this.cellSize, grid.height * this.cellSize);
-            this.ctx.stroke();
-        }
-        
-        for (let y = 0; y < grid.height; y += 5) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y * this.cellSize);
-            this.ctx.lineTo(grid.width * this.cellSize, y * this.cellSize);
-            this.ctx.stroke();
-        }
-
-        // Set font for rendering
-        this.ctx.font = 'bold 14px monospace';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-
-        // Render landmarks with glow
-        landmarks.forEach(landmark => {
-            this.renderEntityWithGlow(landmark.position, landmark.character, '#888888', 3);
-        });
-
-        // Render resources with glow
-        resources.forEach(resource => {
-            if (!resource.collected) {
-                this.renderEntityWithGlow(resource.position, resource.character, '#4CAF50', 5);
+        try {
+            if (!worldState || !worldState.grid) {
+                console.warn('Invalid world data received');
+                return;
             }
-        });
 
-        // Render citizens with stronger glow
-        citizens.forEach(citizen => {
-            this.renderEntityWithGlow(citizen.position, citizen.emoji, '#FFFFFF', 8);
-        });
+            const { grid, citizens, resources, landmarks } = worldState;
+            
+            // Clear canvas
+            this.ctx.fillStyle = '#0f0f1e';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Draw grid lines (subtle)
+            this.ctx.strokeStyle = 'rgba(102, 126, 234, 0.1)';
+            this.ctx.lineWidth = 1;
+            
+            for (let x = 0; x < grid.width; x += 5) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x * this.cellSize, 0);
+                this.ctx.lineTo(x * this.cellSize, grid.height * this.cellSize);
+                this.ctx.stroke();
+            }
+            
+            for (let y = 0; y < grid.height; y += 5) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y * this.cellSize);
+                this.ctx.lineTo(grid.width * this.cellSize, y * this.cellSize);
+                this.ctx.stroke();
+            }
+
+            // Set font for rendering
+            this.ctx.font = 'bold 14px monospace';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+
+            // Render landmarks with glow
+            if (Array.isArray(landmarks)) {
+                landmarks.forEach(landmark => {
+                    try {
+                        this.renderEntityWithGlow(landmark.position, landmark.character, '#888888', 3);
+                    } catch (e) {
+                        console.error('Error rendering landmark:', e);
+                    }
+                });
+            }
+
+            // Render resources with glow
+            if (Array.isArray(resources)) {
+                resources.forEach(resource => {
+                    try {
+                        if (!resource.collected) {
+                            this.renderEntityWithGlow(resource.position, resource.character, '#4CAF50', 5);
+                        }
+                    } catch (e) {
+                        console.error('Error rendering resource:', e);
+                    }
+                });
+            }
+
+            // Render citizens with stronger glow
+            if (Array.isArray(citizens)) {
+                citizens.forEach(citizen => {
+                    try {
+                        this.renderEntityWithGlow(citizen.position, citizen.emoji, '#FFFFFF', 8);
+                    } catch (e) {
+                        console.error('Error rendering citizen:', e);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error rendering world:', error);
+            // Don't crash the app, just skip this frame
+        }
     }
 
     renderEntityWithGlow(position, character, color, glowSize) {

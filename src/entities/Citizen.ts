@@ -52,19 +52,24 @@ export class Citizen {
 
   // Update citizen AI each tick
   update(grid: Grid, allEntities: { citizens: Citizen[], resources: Resource[], landmarks: Landmark[] }): void {
-    // Decay needs
-    this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
-    this.needs.energy = Math.max(0, this.needs.energy - 0.05);
-    this.needs.social = Math.max(0, this.needs.social - 0.08);
+    try {
+      // Decay needs
+      this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
+      this.needs.energy = Math.max(0, this.needs.energy - 0.05);
+      this.needs.social = Math.max(0, this.needs.social - 0.08);
 
-    // Decide on action based on state and needs
-    this.decideAction(grid, allEntities);
+      // Decide on action based on state and needs
+      this.decideAction(grid, allEntities);
 
-    // Move towards target if exists
-    this.moveCounter++;
-    if (this.moveCounter >= this.movementSpeed) {
-      this.moveCounter = 0;
-      this.move(grid, allEntities.landmarks);
+      // Move towards target if exists
+      this.moveCounter++;
+      if (this.moveCounter >= this.movementSpeed) {
+        this.moveCounter = 0;
+        this.move(grid, allEntities.landmarks);
+      }
+    } catch (error) {
+      console.error(`Error in citizen update ${this.id}:`, error);
+      // Don't crash, just skip this tick
     }
   }
 
@@ -92,30 +97,35 @@ export class Citizen {
   }
 
   private move(grid: Grid, landmarks: Landmark[]): void {
-    if (!this.target) return;
+    try {
+      if (!this.target) return;
 
-    const dx = Math.sign(this.target.x - this.position.x);
-    const dy = Math.sign(this.target.y - this.position.y);
+      const dx = Math.sign(this.target.x - this.position.x);
+      const dy = Math.sign(this.target.y - this.position.y);
 
-    let newPosition: Position;
+      let newPosition: Position;
 
-    // Try to move diagonally first
-    if (dx !== 0 && dy !== 0 && Math.random() > 0.5) {
-      newPosition = { x: this.position.x + dx, y: this.position.y + dy };
-    } else if (Math.abs(this.target.x - this.position.x) > Math.abs(this.target.y - this.position.y)) {
-      newPosition = { x: this.position.x + dx, y: this.position.y };
-    } else {
-      newPosition = { x: this.position.x, y: this.position.y + dy };
-    }
+      // Try to move diagonally first
+      if (dx !== 0 && dy !== 0 && Math.random() > 0.5) {
+        newPosition = { x: this.position.x + dx, y: this.position.y + dy };
+      } else if (Math.abs(this.target.x - this.position.x) > Math.abs(this.target.y - this.position.y)) {
+        newPosition = { x: this.position.x + dx, y: this.position.y };
+      } else {
+        newPosition = { x: this.position.x, y: this.position.y + dy };
+      }
 
-    // Check if new position is valid and walkable
-    if (grid.isValidPosition(newPosition) && this.isWalkable(newPosition, landmarks)) {
-      this.position = newPosition;
-    }
+      // Check if new position is valid and walkable
+      if (grid.isValidPosition(newPosition) && this.isWalkable(newPosition, landmarks)) {
+        this.position = newPosition;
+      }
 
-    // Check if reached target
-    if (this.position.x === this.target.x && this.position.y === this.target.y) {
-      this.onReachTarget(grid, landmarks);
+      // Check if reached target
+      if (this.position.x === this.target.x && this.position.y === this.target.y) {
+        this.onReachTarget(grid, landmarks);
+      }
+    } catch (error) {
+      console.error(`Error moving citizen ${this.id}:`, error);
+      // Stay in place on error
     }
   }
 

@@ -60,6 +60,9 @@ export class Grid {
 
   // Get all entities at a position
   getEntitiesAt(pos: Position): any[] {
+    if (!this.isValidPosition(pos)) {
+      return [];
+    }
     const key = this.positionToKey(pos);
     return this.cells.get(key) || [];
   }
@@ -76,6 +79,24 @@ export class Grid {
       }
     }
     return entities;
+  }
+
+  // Safe methods for getting and setting cells
+  getCellSafe(x: number, y: number): any[] {
+    const pos = { x, y };
+    if (!this.isValidPosition(pos)) {
+      return [];
+    }
+    return this.getEntitiesAt(pos);
+  }
+
+  setCellSafe(x: number, y: number, entity: any): boolean {
+    const pos = { x, y };
+    if (!this.isValidPosition(pos)) {
+      return false;
+    }
+    this.addEntity(pos, entity);
+    return true;
   }
 
   // Calculate distance between two positions

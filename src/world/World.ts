@@ -41,6 +41,7 @@ export class World {
   private config: WorldConfig;
   private tickCount: number;
   private running: boolean;
+  private maxTicksBeforeCleanup: number = 1000;
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -157,37 +158,73 @@ export class World {
   }
 
   tick(): void {
-    this.tickCount++;
+    try {
+      this.tickCount++;
 
-    // Update citizens
-    for (const citizen of this.citizens) {
-      citizen.update(this.grid, {
-        citizens: this.citizens,
-        resources: this.resources,
-        landmarks: this.landmarks
-      });
+      // Process citizens with individual error handling
+      for (const citizen of this.citizens) {
+        try {
+          if (citizen && typeof citizen.update === 'function') {
+            citizen.update(this.grid, {
+              citizens: this.citizens,
+              resources: this.resources,
+              landmarks: this.landmarks
+            });
 
-      // Check for resource collection
-      const resourcesAtPos = this.resources.filter(
-        r => !r.collected && r.position.x === citizen.position.x && r.position.y === citizen.position.y
-      );
+            // Check for resource collection
+            const resourcesAtPos = this.resources.filter(
+              r => !r.collected && r.position.x === citizen.position.x && r.position.y === citizen.position.y
+            );
 
-      for (const resource of resourcesAtPos) {
-        citizen.collectResource(resource);
-      }
-    }
-
-    // Respawn resources
-    if (Math.random() < this.config.resources.respawnRate) {
-      const collected = this.resources.filter(r => r.collected);
-      if (collected.length > 0) {
-        const resource = collected[Math.floor(Math.random() * collected.length)];
-        const newPos = this.getRandomEmptyPosition();
-        if (newPos) {
-          resource.respawn(newPos);
+            for (const resource of resourcesAtPos) {
+              citizen.collectResource(resource);
+            }
+          }
+        } catch (citizenError) {
+          console.error(`Error processing citizen ${citizen?.id}:`, citizenError);
+          // Continue with other citizens instead of crashing
         }
       }
+
+      // Process resources with error handling
+      try {
+        // Respawn resources
+        if (Math.random() < this.config.resources.respawnRate) {
+          const collected = this.resources.filter(r => r.collected);
+          if (collected.length > 0) {
+            const resource = collected[Math.floor(Math.random() * collected.length)];
+            const newPos = this.getRandomEmptyPosition();
+            if (newPos) {
+              resource.respawn(newPos);
+            }
+          }
+        }
+      } catch (resourceError) {
+        console.error('Error updating resources:', resourceError);
+      }
+
+      // Periodic cleanup
+      if (this.tickCount % this.maxTicksBeforeCleanup === 0) {
+        this.cleanup();
+      }
+    } catch (error) {
+      console.error('Critical error in World.tick():', error);
+      throw error; // Re-throw to be handled by API layer
     }
+  }
+
+  private cleanup(): void {
+    // Remove dead or invalid citizens
+    this.citizens = this.citizens.filter(citizen => {
+      return citizen && 
+             citizen.position && 
+             this.grid.isValidPosition(citizen.position);
+    });
+
+    // Remove depleted resources
+    this.resources = this.resources.filter(resource => {
+      return resource && resource.position;
+    });
   }
 
   getGrid(): Grid {
