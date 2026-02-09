@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmojiWorld - Autonomous 2D Simulation</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🌍 EmojiWorld</h1>
+            <p>An autonomous 2D world simulation with emoji citizens</p>
+        </header>
+        
+        <main>
+            <div id="world-container">
+                <canvas id="world-canvas"></canvas>
+            </div>
+            
+            <div id="controls">
+                <button id="start-btn">Start Simulation</button>
+                <button id="pause-btn" disabled>Pause</button>
+                <button id="reset-btn">Reset</button>
+                <div id="speed-control">
+                    <label for="speed">Speed:</label>
+                    <input type="range" id="speed" min="1" max="10" value="5">
+                    <span id="speed-value">5x</span>
+                </div>
+            </div>
+            
+            <div id="stats">
+                <h3>Statistics</h3>
+                <div id="stats-content">
+                    <p>Population: <span id="population">0</span></p>
+                    <p>Resources: <span id="resources">0</span></p>
+                    <p>Landmarks: <span id="landmarks">0</span></p>
+                    <p>Ticks: <span id="ticks">0</span></p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/app.js"></script>
+</body>
+</html>
