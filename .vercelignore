@@ -1,0 +1,11 @@
+node_modules
+.git
+*.log
+.env
+examples
+src/main.ts
+README.md
+DEPLOY.md
+DESIGN.md
+FEATURES.md
+PROJECT_SUMMARY.md
