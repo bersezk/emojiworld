@@ -1,10 +1,11 @@
 import { Position, Grid } from '../world/Grid';
 import { Resource } from './Resource';
 import { Landmark } from './Landmark';
+import { Role } from './Government';
 
 export type CitizenState = 'wandering' | 'seeking_resource' | 'seeking_shelter' | 'resting' | 'socializing' | 'building' | 'seeking_mate';
 export type CitizenCategory = 'people' | 'animals' | 'food';
-export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL' | 'HORIZONTAL_ROAD' | 'VERTICAL_ROAD' | 'INTERSECTION';
+export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL' | 'HORIZONTAL_ROAD' | 'VERTICAL_ROAD' | 'INTERSECTION' | 'TOWN_HALL' | 'COURTHOUSE' | 'TREASURY' | 'POLICE_STATION' | 'PUBLIC_WORKS';
 
 export interface CitizenNeeds {
   hunger: number;      // 0-100
@@ -58,6 +59,31 @@ export const BUILDING_RECIPES: Record<BuildingType, BuildingRecipe> = {
     symbol: '╬',
     resources: ['R', 'O', 'A', 'D', 'X'],
     buildTime: 4
+  },
+  TOWN_HALL: {
+    symbol: '🏛',
+    resources: ['G', 'O', 'V', 'T', 'H', 'A', 'L', 'L'],
+    buildTime: 20
+  },
+  COURTHOUSE: {
+    symbol: '⚖',
+    resources: ['C', 'O', 'U', 'R', 'T'],
+    buildTime: 15
+  },
+  TREASURY: {
+    symbol: '💰',
+    resources: ['T', 'R', 'E', 'A', 'S', 'U', 'R', 'Y'],
+    buildTime: 12
+  },
+  POLICE_STATION: {
+    symbol: '🚓',
+    resources: ['P', 'O', 'L', 'I', 'C', 'E'],
+    buildTime: 10
+  },
+  PUBLIC_WORKS: {
+    symbol: '⚙',
+    resources: ['W', 'O', 'R', 'K', 'S'],
+    buildTime: 8
   }
 };
 
@@ -95,6 +121,14 @@ export class Citizen {
 
   // Energy system
   public energy: number;
+
+  // Government system
+  public governmentId: string | null;
+  public governmentRole: Role;
+  public taxesPaid: number;
+  public satisfaction: number;
+  public loyaltyToGov: number;
+  public lastTaxTime: number;
 
   private moveCounter: number;
 
@@ -136,6 +170,14 @@ export class Citizen {
 
     // Initialize energy
     this.energy = 80;
+
+    // Initialize government properties
+    this.governmentId = null;
+    this.governmentRole = Role.INDEPENDENT;
+    this.taxesPaid = 0;
+    this.satisfaction = 70;
+    this.loyaltyToGov = 50;
+    this.lastTaxTime = -100;
   }
 
   // Update citizen AI each tick
@@ -376,9 +418,20 @@ export class Citizen {
   private planBuilding(): void {
     if (this.buildingTarget) return; // Already have a plan
     
-    // Randomly choose a building type
-    const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL', 'HORIZONTAL_ROAD', 'VERTICAL_ROAD', 'INTERSECTION'];
-    this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+    // Randomly choose a building type (government buildings are rarer)
+    const rand = Math.random();
+    if (rand < 0.7) {
+      // 70% chance of regular buildings
+      const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL', 'HORIZONTAL_ROAD', 'VERTICAL_ROAD'];
+      this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+    } else if (rand < 0.95) {
+      // 25% chance of intersection
+      this.buildingTarget = 'INTERSECTION';
+    } else {
+      // 5% chance of government buildings
+      const govBuildings: BuildingType[] = ['TOWN_HALL', 'COURTHOUSE', 'TREASURY', 'POLICE_STATION', 'PUBLIC_WORKS'];
+      this.buildingTarget = govBuildings[Math.floor(Math.random() * govBuildings.length)];
+    }
   }
 
   private findResourcesForBuilding(resources: Resource[]): void {
@@ -535,5 +588,68 @@ export class Citizen {
     partner.needs.hunger = Math.max(0, partner.needs.hunger - 30);
     this.breedingPartner = null;
     partner.breedingPartner = null;
+  }
+
+  // Government methods
+  joinGovernment(governmentId: string, role: Role = Role.CITIZEN): void {
+    this.governmentId = governmentId;
+    this.governmentRole = role;
+    this.satisfaction = 70;
+    this.loyaltyToGov = 60;
+  }
+
+  leaveGovernment(): void {
+    this.governmentId = null;
+    this.governmentRole = Role.INDEPENDENT;
+  }
+
+  payTax(taxRate: number, tickCount: number): string[] {
+    // Pay taxes every 100 ticks
+    if (tickCount - this.lastTaxTime < 100) return [];
+    
+    const taxableItems: string[] = [];
+    const taxAmount = Math.floor(this.inventory.length * taxRate);
+    
+    for (let i = 0; i < taxAmount && this.inventory.length > 0; i++) {
+      const resource = this.inventory.shift();
+      if (resource) {
+        taxableItems.push(resource);
+        this.taxesPaid++;
+      }
+    }
+    
+    this.lastTaxTime = tickCount;
+    
+    // High taxes reduce satisfaction
+    if (taxRate > 0.3) {
+      this.satisfaction = Math.max(0, this.satisfaction - 2);
+      this.loyaltyToGov = Math.max(0, this.loyaltyToGov - 1);
+    }
+    
+    return taxableItems;
+  }
+
+  receiveGovernmentService(): void {
+    // Receiving government services increases satisfaction
+    this.satisfaction = Math.min(100, this.satisfaction + 1);
+    this.loyaltyToGov = Math.min(100, this.loyaltyToGov + 0.5);
+  }
+
+  updateGovernmentSatisfaction(delta: number): void {
+    this.satisfaction = Math.max(0, Math.min(100, this.satisfaction + delta));
+    
+    // Satisfaction affects loyalty
+    if (this.satisfaction < 30) {
+      this.loyaltyToGov = Math.max(0, this.loyaltyToGov - 1);
+    } else if (this.satisfaction > 70) {
+      this.loyaltyToGov = Math.min(100, this.loyaltyToGov + 0.5);
+    }
+  }
+
+  shouldRebel(): boolean {
+    return this.governmentId !== null && 
+           this.satisfaction < 20 && 
+           this.loyaltyToGov < 20 && 
+           Math.random() < 0.01; // 1% chance per tick when conditions met
   }
 }
