@@ -1,5 +1,5 @@
 import { Grid, Position } from './Grid';
-import { Citizen, CitizenCategory } from '../entities/Citizen';
+import { Citizen, CitizenCategory, BUILDING_RECIPES } from '../entities/Citizen';
 import { Resource } from '../entities/Resource';
 import { Landmark, LandmarkType } from '../entities/Landmark';
 
@@ -183,7 +183,7 @@ export class World {
       // Check for completed building
       if (citizen.buildingTarget && !citizen.isBuilding && citizen.buildingProgress === 0) {
         // Citizen just finished building in previous tick
-        const recipe = require('../entities/Citizen').BUILDING_RECIPES[citizen.buildingTarget];
+        const recipe = BUILDING_RECIPES[citizen.buildingTarget];
         if (this.canBuildAt(citizen.position.x, citizen.position.y)) {
           this.addLandmark(new Landmark(
             { x: citizen.position.x, y: citizen.position.y },

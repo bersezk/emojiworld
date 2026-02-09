@@ -61,7 +61,7 @@ export class Citizen {
   public category: CitizenCategory;
   public state: CitizenState;
   public needs: CitizenNeeds;
-  public inventory: string[];  // Changed to string[] for letter resources
+  public inventory: string[];  // Array of single-letter strings (A-Z) representing collected alphabet resources
   public target: Position | null;
   public movementSpeed: number;
   public visionRange: number;
