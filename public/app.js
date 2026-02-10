@@ -60,11 +60,14 @@ class EmojiWorldApp {
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Failed to create world: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.message || errorData.error || response.statusText;
+                    throw new Error(`Failed to create world: ${errorMessage}`);
                 }
                 
                 const data = await response.json();
                 this.sessionId = data.sessionId;
+                console.log('Session created:', this.sessionId);
             }
             
             this.isRunning = true;
@@ -74,7 +77,7 @@ class EmojiWorldApp {
             this.tickInterval = setInterval(() => this.tick(), 1000 / this.speed);
         } catch (error) {
             console.error('Error starting simulation:', error);
-            alert('Failed to start simulation. Please check if the API is running.');
+            this.showError('Failed to start simulation', error.message);
         }
     }
     
@@ -103,16 +106,47 @@ class EmojiWorldApp {
             });
             
             if (!response.ok) {
-                throw new Error(`Tick failed: ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Tick error response:', errorData);
+                
+                // Handle session not found - attempt recovery
+                if (response.status === 404 || errorData.errorCode === 'SESSION_NOT_FOUND') {
+                    console.warn('Session lost, attempting recovery...');
+                    this.sessionId = null;
+                    this.pause();
+                    
+                    // Show error with recovery option
+                    const shouldRecover = confirm(
+                        'Session lost (server may have restarted).\n\n' + 
+                        'This is common on serverless platforms like Vercel.\n\n' +
+                        'Click OK to start a new simulation, or Cancel to stop.'
+                    );
+                    
+                    if (shouldRecover) {
+                        await this.start();
+                    }
+                    return;
+                }
+                
+                // Handle other errors
+                const errorMessage = errorData.message || errorData.error || response.statusText;
+                throw new Error(`Tick failed: ${errorMessage}`);
             }
             
             const data = await response.json();
+            
+            // Log performance warnings
+            if (data.executionTime && data.executionTime > 1000) {
+                console.warn(`Slow tick: ${data.executionTime}ms`);
+            }
+            
             this.render(data);
             this.updateStats(data);
+            this.updateActivityLog(data.events || []);
         } catch (error) {
             console.error('Error during tick:', error);
             this.pause();
-            alert('Simulation error occurred. Please reset and try again.');
+            this.showError('Simulation Error', error.message + '\n\nPlease reset and try again.');
         }
     }
     
@@ -190,6 +224,21 @@ class EmojiWorldApp {
         document.getElementById('births').textContent = data.births || 0;
         document.getElementById('growth-rate').textContent = (data.growthRate || 0).toFixed(4);
         document.getElementById('ticks').textContent = data.ticks || 0;
+    }
+    
+    showError(title, message) {
+        // Use a more informative alert for now
+        alert(`${title}\n\n${message}`);
+    }
+    
+    updateActivityLog(events) {
+        // Placeholder - will be implemented in Phase 2
+        if (!events || events.length === 0) return;
+        
+        // Log events to console for now
+        events.forEach(event => {
+            console.log('Event:', event);
+        });
     }
 }
 

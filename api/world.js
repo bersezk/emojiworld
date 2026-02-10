@@ -14,8 +14,8 @@ function getWorld() {
   return World;
 }
 
-// In-memory storage for world instances
-const worldInstances = new Map();
+// In-memory storage for world instances with metadata
+const worldInstances = new Map(); // Map<sessionId, { world, createdAt, lastAccessedAt }>
 
 // Default configuration
 const defaultConfig = {
@@ -68,7 +68,67 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { sessionId } = req.query;
+  const { sessionId, action } = req.query;
+  const startTime = Date.now();
+
+  // Helper function to log errors with context
+  const logError = (context, error) => {
+    console.error(`[${context}] Error:`, {
+      message: error.message,
+      stack: error.stack,
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // Helper function to validate session
+  const validateSession = (sessionId) => {
+    if (!sessionId) {
+      return { valid: false, errorCode: 'MISSING_SESSION', message: 'Session ID is required' };
+    }
+    
+    const sessionData = worldInstances.get(sessionId);
+    if (!sessionData) {
+      return { 
+        valid: false, 
+        errorCode: 'SESSION_NOT_FOUND', 
+        message: `Session '${sessionId}' not found. It may have expired or been cleared. Please create a new world.`,
+        hint: 'Sessions are stored in memory and cleared on server restarts or after cleanup.'
+      };
+    }
+    
+    return { valid: true, sessionData };
+  };
+
+  // GET /api/world/:sessionId/status - Diagnostic endpoint
+  if (req.method === 'GET' && sessionId && action === 'status') {
+    const validation = validateSession(sessionId);
+    
+    if (!validation.valid) {
+      return res.status(404).json({
+        error: validation.errorCode,
+        message: validation.message,
+        hint: validation.hint,
+        sessionId
+      });
+    }
+
+    const { sessionData } = validation;
+    const world = sessionData.world;
+    const stats = world.getStats();
+    const uptime = Date.now() - sessionData.createdAt;
+    const lastAccessed = Date.now() - sessionData.lastAccessedAt;
+
+    res.status(200).json({
+      sessionId,
+      status: 'active',
+      uptime: uptime,
+      lastAccessed: lastAccessed,
+      stats,
+      totalSessions: worldInstances.size
+    });
+    return;
+  }
 
   // POST /api/world - Create new world
   if (req.method === 'POST' && !sessionId) {
@@ -77,32 +137,58 @@ module.exports = async function handler(req, res) {
       const newSessionId = `world-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const world = new WorldClass(defaultConfig);
       world.initialize();
-      worldInstances.set(newSessionId, world);
+      
+      worldInstances.set(newSessionId, {
+        world,
+        createdAt: Date.now(),
+        lastAccessedAt: Date.now()
+      });
 
       // Clean up old instances (keep only last 10)
       if (worldInstances.size > 10) {
-        const firstKey = worldInstances.keys().next().value;
-        worldInstances.delete(firstKey);
+        const sortedSessions = Array.from(worldInstances.entries())
+          .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+        const [oldestSessionId] = sortedSessions[0];
+        worldInstances.delete(oldestSessionId);
+        console.log(`[Cleanup] Removed oldest session: ${oldestSessionId}`);
       }
+
+      const executionTime = Date.now() - startTime;
+      console.log(`[Create] Session created: ${newSessionId}, execution time: ${executionTime}ms`);
 
       res.status(200).json({ sessionId: newSessionId });
     } catch (error) {
-      console.error('Error creating world:', error);
-      res.status(500).json({ error: 'Failed to create world', message: error.message });
+      logError('Create World', error);
+      res.status(500).json({ 
+        error: 'CREATE_FAILED',
+        message: 'Failed to create world', 
+        details: error.message,
+        hint: 'Check server logs for detailed error information.'
+      });
     }
     return;
   }
 
   // POST /api/world/:sessionId/tick - Tick world
   if (req.method === 'POST' && sessionId && req.url.includes('/tick')) {
-    const world = worldInstances.get(sessionId);
+    const validation = validateSession(sessionId);
     
-    if (!world) {
-      res.status(404).json({ error: 'World not found' });
-      return;
+    if (!validation.valid) {
+      return res.status(404).json({
+        error: validation.errorCode,
+        message: validation.message,
+        hint: validation.hint,
+        sessionId
+      });
     }
 
+    const { sessionData } = validation;
+    const world = sessionData.world;
+
     try {
+      // Update last accessed time
+      sessionData.lastAccessedAt = Date.now();
+
       world.tick();
 
       const grid = world.getGrid();
@@ -112,6 +198,7 @@ module.exports = async function handler(req, res) {
       const resources = world.getResources();
       const landmarks = world.getLandmarks();
       const stats = world.getStats();
+      const events = world.getEvents ? world.getEvents() : [];
 
       // Create display grid matching the frontend expectations
       const display = [];
@@ -151,6 +238,8 @@ module.exports = async function handler(req, res) {
         .filter(c => c.state === 'seeking_mate' && c.breedingPartner)
         .map(c => ({ x: c.position.x, y: c.position.y }));
 
+      const executionTime = Date.now() - startTime;
+
       const worldState = {
         width: width,
         height: height,
@@ -163,17 +252,39 @@ module.exports = async function handler(req, res) {
         growthRate: stats.growthRate || 0,
         ticks: stats.tick,
         buildingCitizens: buildingCitizens,
-        breedingCitizens: breedingCitizens
+        breedingCitizens: breedingCitizens,
+        events: events,
+        executionTime: executionTime
       };
+
+      // Clear events after sending them
+      if (world.clearEvents) {
+        world.clearEvents();
+      }
+
+      if (executionTime > 5000) {
+        console.warn(`[Tick] Slow execution: ${executionTime}ms for session ${sessionId}`);
+      }
 
       res.status(200).json(worldState);
     } catch (error) {
-      console.error('Error ticking world:', error);
-      res.status(500).json({ error: 'Failed to tick world', message: error.message });
+      logError('Tick World', error);
+      res.status(500).json({ 
+        error: 'TICK_FAILED',
+        message: 'Failed to tick world', 
+        details: error.message,
+        sessionId,
+        hint: 'The simulation encountered an error. Try resetting the world.',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
     return;
   }
 
-  res.status(405).json({ error: 'Method not allowed' });
+  res.status(405).json({ 
+    error: 'METHOD_NOT_ALLOWED',
+    message: 'Method not allowed',
+    allowedMethods: ['GET', 'POST', 'OPTIONS']
+  });
 };
 

@@ -2,6 +2,12 @@
   "version": 2,
   "buildCommand": "npm run build",
   "installCommand": "npm install",
+  "functions": {
+    "api/world.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
   "builds": [
     {
       "src": "api/world.js",
@@ -22,6 +28,11 @@
       "src": "/api/world/([^/]+)/tick",
       "methods": ["POST"],
       "dest": "/api/world.js?sessionId=$1"
+    },
+    {
+      "src": "/api/world/([^/]+)/status",
+      "methods": ["GET"],
+      "dest": "/api/world.js?sessionId=$1&action=status"
     },
     {
       "src": "/",
