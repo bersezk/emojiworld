@@ -113,18 +113,29 @@ class EmojiWorldApp {
                 const errorData = await response.json().catch(() => ({}));
                 console.error('Tick error response:', errorData);
                 
-                // Handle session not found - attempt recovery
-                if (response.status === 404 || errorData.errorCode === 'SESSION_NOT_FOUND') {
-                    console.warn('Session lost, attempting recovery...');
+                // Handle session not found or expired - attempt recovery
+                if (response.status === 404 || 
+                    errorData.errorCode === 'SESSION_NOT_FOUND' || 
+                    errorData.errorCode === 'SESSION_EXPIRED' ||
+                    errorData.errorCode === 'SESSION_CORRUPTED') {
+                    
+                    console.warn(`Session issue: ${errorData.errorCode}, attempting recovery...`);
                     this.sessionId = null;
                     this.pause();
                     
+                    let message = 'Session lost (server may have restarted).\n\n';
+                    
+                    if (errorData.errorCode === 'SESSION_EXPIRED') {
+                        message = 'Session expired due to inactivity.\n\n';
+                    } else if (errorData.errorCode === 'SESSION_CORRUPTED') {
+                        message = 'Session data was corrupted.\n\n';
+                    }
+                    
+                    message += 'This is common on serverless platforms like Vercel.\n\n' +
+                               'Click OK to start a new simulation, or Cancel to stop.';
+                    
                     // Show error with recovery option
-                    const shouldRecover = confirm(
-                        'Session lost (server may have restarted).\n\n' + 
-                        'This is common on serverless platforms like Vercel.\n\n' +
-                        'Click OK to start a new simulation, or Cancel to stop.'
-                    );
+                    const shouldRecover = confirm(message);
                     
                     if (shouldRecover) {
                         await this.start();
@@ -132,16 +143,36 @@ class EmojiWorldApp {
                     return;
                 }
                 
+                // Handle other errors with retry logic for transient errors
+                if (response.status >= 500 && response.status < 600) {
+                    // Server error - might be transient
+                    console.warn('Server error detected, will retry on next tick');
+                    // Don't stop simulation, just skip this tick
+                    return;
+                }
+                
                 // Handle other errors
                 const errorMessage = errorData.message || errorData.error || response.statusText;
-                throw new Error(`Tick failed: ${errorMessage}`);
+                const errorDetails = errorData.details || '';
+                const errorHint = errorData.hint || '';
+                
+                throw new Error(`Tick failed: ${errorMessage}\n${errorDetails}\n${errorHint}`);
             }
             
             const data = await response.json();
             
+            // Check for warning about recovered state
+            if (data.warning === 'RECOVERED_FROM_ERROR') {
+                console.warn('Simulation recovered from error using cached state:', data.warningMessage);
+                // Show a brief notification but continue running
+                if (data.errorDetails) {
+                    console.error('Original error:', data.errorDetails);
+                }
+            }
+            
             // Log performance warnings
             if (data.executionTime && data.executionTime > 1000) {
-                console.warn(`Slow tick: ${data.executionTime}ms`);
+                console.warn(`Slow tick: ${data.executionTime}ms at tick ${data.ticks || data.tick || '?'}`);
             }
             
             this.render(data);
@@ -150,7 +181,20 @@ class EmojiWorldApp {
         } catch (error) {
             console.error('Error during tick:', error);
             this.pause();
-            this.showError('Simulation Error', error.message + '\n\nPlease reset and try again.');
+            
+            // Parse error message for better display
+            let errorTitle = 'Simulation Error';
+            let errorMessage = error.message;
+            
+            if (error.message.includes('Failed to fetch')) {
+                errorTitle = 'Network Error';
+                errorMessage = 'Unable to connect to the server.\n\nPlease check your internet connection and try again.';
+            } else if (error.message.includes('TICK_FAILED')) {
+                errorTitle = 'Simulation Error';
+                errorMessage += '\n\nThe simulation encountered an internal error.\nPlease reset and try again.';
+            }
+            
+            this.showError(errorTitle, errorMessage);
         }
     }
     
