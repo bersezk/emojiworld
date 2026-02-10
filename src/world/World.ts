@@ -177,92 +177,158 @@ export class World {
   tick(): void {
     this.tickCount++;
 
-    // Update citizens
-    for (const citizen of this.citizens) {
-      citizen.update(this.grid, {
-        citizens: this.citizens,
-        resources: this.resources,
-        landmarks: this.landmarks
-      }, this.tickCount);
+    // Validate critical state before processing
+    if (!this.grid || !Array.isArray(this.citizens) || !Array.isArray(this.resources) || !Array.isArray(this.landmarks)) {
+      console.error('[World.tick] Critical state validation failed:', {
+        hasGrid: !!this.grid,
+        citizensIsArray: Array.isArray(this.citizens),
+        resourcesIsArray: Array.isArray(this.resources),
+        landmarksIsArray: Array.isArray(this.landmarks),
+        tickCount: this.tickCount
+      });
+      throw new Error('World state is corrupted - missing or invalid core data structures');
+    }
 
-      // Check for resource collection
-      const resourcesAtPos = this.resources.filter(
-        r => !r.collected && r.position.x === citizen.position.x && r.position.y === citizen.position.y
-      );
-
-      for (const resource of resourcesAtPos) {
-        citizen.collectResource(resource);
+    // Update citizens with error handling for each citizen
+    for (let i = 0; i < this.citizens.length; i++) {
+      const citizen = this.citizens[i];
+      
+      // Skip invalid citizens
+      if (!citizen || !citizen.position) {
+        console.warn(`[World.tick] Skipping invalid citizen at index ${i}`);
+        continue;
       }
-
-      // Check for completed building
-      if (citizen.buildingTarget && !citizen.isBuilding && citizen.buildingProgress === 0) {
-        // Citizen just finished building in previous tick
-        const recipe = BUILDING_RECIPES[citizen.buildingTarget];
-        if (this.canBuildAt(citizen.position.x, citizen.position.y)) {
-          this.addLandmark(new Landmark(
-            { x: citizen.position.x, y: citizen.position.y },
-            citizen.buildingTarget.toLowerCase() as LandmarkType,
-            recipe.symbol
-          ));
-          this.totalBuildings++;
-          
-          // Track building event
-          this.events.push({
-            type: 'building',
-            tick: this.tickCount,
-            data: {
-              building: citizen.buildingTarget,
-              symbol: recipe.symbol,
-              position: { x: citizen.position.x, y: citizen.position.y },
-              citizen: citizen.emoji
-            }
-          });
+      
+      // Validate citizen position is within bounds
+      const pos = citizen.position;
+      if (!this.grid.isValidPosition(pos)) {
+        console.warn(`[World.tick] Citizen ${citizen.id} has invalid position (${pos.x}, ${pos.y}), resetting to safe position`);
+        const safePos = this.getRandomEmptyPosition();
+        if (safePos) {
+          citizen.position = safePos;
+        } else {
+          continue; // Skip this citizen if we can't find a safe position
         }
-        citizen.buildingTarget = null;
+      }
+      
+      try {
+        citizen.update(this.grid, {
+          citizens: this.citizens,
+          resources: this.resources,
+          landmarks: this.landmarks
+        }, this.tickCount);
+      } catch (error) {
+        console.error(`[World.tick] Error updating citizen ${citizen.id}:`, error.message);
+        // Continue with other citizens rather than failing entire tick
+        continue;
       }
 
-      // Check for breeding opportunity
-      if (citizen.state === 'seeking_mate' && citizen.breedingPartner) {
-        const partner = citizen.breedingPartner;
-        if (citizen.isNearby(partner) && partner.breedingPartner === citizen) {
-          // Both want to breed with each other and are nearby
-          const offspring = this.createOffspring(citizen, partner);
-          if (offspring) {
-            this.citizens.push(offspring);
-            citizen.breed(partner, this.tickCount);
-            this.totalBirths++;
+      // Check for resource collection with bounds validation
+      try {
+        const resourcesAtPos = this.resources.filter(
+          r => r && !r.collected && r.position && 
+               r.position.x === citizen.position.x && 
+               r.position.y === citizen.position.y
+        );
+
+        for (const resource of resourcesAtPos) {
+          if (resource && typeof citizen.collectResource === 'function') {
+            citizen.collectResource(resource);
+          }
+        }
+      } catch (error) {
+        console.error(`[World.tick] Error collecting resources for citizen ${citizen.id}:`, error.message);
+      }
+
+      // Check for completed building with validation
+      try {
+        if (citizen.buildingTarget && !citizen.isBuilding && citizen.buildingProgress === 0) {
+          const recipe = BUILDING_RECIPES[citizen.buildingTarget];
+          if (recipe && this.canBuildAt(citizen.position.x, citizen.position.y)) {
+            this.addLandmark(new Landmark(
+              { x: citizen.position.x, y: citizen.position.y },
+              citizen.buildingTarget.toLowerCase() as LandmarkType,
+              recipe.symbol
+            ));
+            this.totalBuildings++;
             
-            // Track birth event
+            // Track building event
             this.events.push({
-              type: 'birth',
+              type: 'building',
               tick: this.tickCount,
               data: {
-                parents: [citizen.emoji, partner.emoji],
-                offspring: offspring.emoji,
-                position: { x: offspring.position.x, y: offspring.position.y }
+                building: citizen.buildingTarget,
+                symbol: recipe.symbol,
+                position: { x: citizen.position.x, y: citizen.position.y },
+                citizen: citizen.emoji
               }
             });
           }
+          citizen.buildingTarget = null;
         }
+      } catch (error) {
+        console.error(`[World.tick] Error processing building for citizen ${citizen.id}:`, error.message);
+      }
+
+      // Check for breeding opportunity with validation
+      try {
+        if (citizen.state === 'seeking_mate' && citizen.breedingPartner) {
+          const partner = citizen.breedingPartner;
+          if (partner && typeof citizen.isNearby === 'function' && 
+              citizen.isNearby(partner) && partner.breedingPartner === citizen) {
+            // Both want to breed with each other and are nearby
+            const offspring = this.createOffspring(citizen, partner);
+            if (offspring) {
+              this.citizens.push(offspring);
+              citizen.breed(partner, this.tickCount);
+              this.totalBirths++;
+              
+              // Track birth event
+              this.events.push({
+                type: 'birth',
+                tick: this.tickCount,
+                data: {
+                  parents: [citizen.emoji, partner.emoji],
+                  offspring: offspring.emoji,
+                  position: { x: offspring.position.x, y: offspring.position.y }
+                }
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[World.tick] Error processing breeding for citizen ${citizen.id}:`, error.message);
       }
     }
 
-    // Check for government formation near Town Halls
-    this.checkGovernmentFormation();
+    // Check for government formation near Town Halls with error handling
+    try {
+      this.checkGovernmentFormation();
+    } catch (error) {
+      console.error('[World.tick] Error in government formation:', error.message);
+    }
 
-    // Process governments
-    this.processGovernments();
+    // Process governments with error handling
+    try {
+      this.processGovernments();
+    } catch (error) {
+      console.error('[World.tick] Error processing governments:', error.message);
+    }
 
-    // Respawn resources
-    if (Math.random() < this.config.resources.respawnRate) {
-      const collected = this.resources.filter(r => r.collected);
-      if (collected.length > 0) {
-        const resource = collected[Math.floor(Math.random() * collected.length)];
-        const newPos = this.getRandomEmptyPosition();
-        if (newPos) {
-          resource.respawn(newPos);
+    // Respawn resources with error handling
+    try {
+      if (Math.random() < this.config.resources.respawnRate) {
+        const collected = this.resources.filter(r => r && r.collected);
+        if (collected.length > 0) {
+          const resource = collected[Math.floor(Math.random() * collected.length)];
+          const newPos = this.getRandomEmptyPosition();
+          if (newPos && resource && typeof resource.respawn === 'function') {
+            resource.respawn(newPos);
+          }
         }
       }
+    } catch (error) {
+      console.error('[World.tick] Error respawning resources:', error.message);
     }
   }
 
@@ -404,25 +470,43 @@ export class World {
 
   // Government formation check
   private checkGovernmentFormation(): void {
-    const townHalls = this.landmarks.filter(l => l.type === 'town_hall');
+    if (!Array.isArray(this.landmarks) || !Array.isArray(this.citizens) || !Array.isArray(this.governments)) {
+      console.warn('[World.checkGovernmentFormation] Invalid state, skipping');
+      return;
+    }
+    
+    const townHalls = this.landmarks.filter(l => l && l.type === 'town_hall');
     
     for (const townHall of townHalls) {
+      if (!townHall || !townHall.position) continue;
+      
       // Check if this town hall already has a government
       const existingGov = this.governments.find(g => 
-        g.governmentBuildings.some(b => b.position.x === townHall.position.x && b.position.y === townHall.position.y)
+        g && g.governmentBuildings && g.governmentBuildings.some(b => 
+          b && b.position && b.position.x === townHall.position.x && b.position.y === townHall.position.y
+        )
       );
       
       if (existingGov) continue;
       
       // Find nearby citizens (within 5 tiles)
       const nearbyCitizens = this.citizens.filter(c => {
-        const dist = Grid.distance(c.position, townHall.position);
-        return dist <= 5 && c.governmentId === null;
+        if (!c || !c.position || c.governmentId !== null) return false;
+        try {
+          const dist = Grid.distance(c.position, townHall.position);
+          return dist <= 5;
+        } catch (e) {
+          return false;
+        }
       });
       
       // Need at least 5 citizens to form a government
       if (nearbyCitizens.length >= 5) {
-        this.formGovernment(townHall, nearbyCitizens);
+        try {
+          this.formGovernment(townHall, nearbyCitizens);
+        } catch (error) {
+          console.error('[World.checkGovernmentFormation] Error forming government:', error.message);
+        }
       }
     }
   }
@@ -473,34 +557,57 @@ export class World {
   }
 
   private processGovernments(): void {
+    if (!Array.isArray(this.governments)) {
+      console.warn('[World.processGovernments] Governments array is invalid');
+      return;
+    }
+    
     for (const government of this.governments) {
-      // Collect taxes every 100 ticks
-      if (this.tickCount % 100 === 0) {
-        this.collectTaxes(government);
-      }
+      if (!government) continue;
       
-      // Update satisfaction based on services
-      if (this.tickCount % 50 === 0) {
-        this.updateGovernmentSatisfaction(government);
-      }
-      
-      // Recruit new citizens nearby government buildings
-      if (this.tickCount % 200 === 0) {
-        this.recruitCitizens(government);
+      try {
+        // Collect taxes every 100 ticks
+        if (this.tickCount % 100 === 0) {
+          this.collectTaxes(government);
+        }
+        
+        // Update satisfaction based on services
+        if (this.tickCount % 50 === 0) {
+          this.updateGovernmentSatisfaction(government);
+        }
+        
+        // Recruit new citizens nearby government buildings
+        if (this.tickCount % 200 === 0) {
+          this.recruitCitizens(government);
+        }
+      } catch (error) {
+        console.error(`[World.processGovernments] Error processing government ${government.id}:`, error.message);
       }
     }
   }
 
   private collectTaxes(government: Government): void {
+    if (!government || !government.citizens || !Array.isArray(this.citizens)) {
+      return;
+    }
+    
     let totalTaxesCollected = 0;
     for (const citizenId of government.citizens) {
-      const citizen = this.citizens.find(c => c.id === citizenId);
-      if (!citizen) continue;
-      
-      const taxes = citizen.payTax(government.taxRate, this.tickCount);
-      for (const resource of taxes) {
-        government.addToTreasury(resource, 1);
-        totalTaxesCollected++;
+      try {
+        const citizen = this.citizens.find(c => c && c.id === citizenId);
+        if (!citizen || typeof citizen.payTax !== 'function') continue;
+        
+        const taxes = citizen.payTax(government.taxRate, this.tickCount);
+        if (Array.isArray(taxes)) {
+          for (const resource of taxes) {
+            if (resource && typeof government.addToTreasury === 'function') {
+              government.addToTreasury(resource, 1);
+              totalTaxesCollected++;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[World.collectTaxes] Error collecting from citizen ${citizenId}:`, error.message);
       }
     }
     
@@ -520,65 +627,97 @@ export class World {
   }
 
   private updateGovernmentSatisfaction(government: Government): void {
-    const treasurySize = government.getTreasuryTotal();
-    const citizenCount = government.getCitizenCount();
+    if (!government || !government.citizens || !Array.isArray(this.citizens) || !Array.isArray(this.landmarks)) {
+      return;
+    }
     
-    // More resources per citizen = better satisfaction
-    const resourcesPerCitizen = citizenCount > 0 ? treasurySize / citizenCount : 0;
-    
-    if (resourcesPerCitizen > 5) {
-      government.updateSatisfaction(2);
-    } else if (resourcesPerCitizen < 1) {
-      government.updateSatisfaction(-2);
+    try {
+      const treasurySize = government.getTreasuryTotal();
+      const citizenCount = government.getCitizenCount();
+      
+      // More resources per citizen = better satisfaction
+      const resourcesPerCitizen = citizenCount > 0 ? treasurySize / citizenCount : 0;
+      
+      if (resourcesPerCitizen > 5) {
+        government.updateSatisfaction(2);
+      } else if (resourcesPerCitizen < 1) {
+        government.updateSatisfaction(-2);
+      }
+    } catch (error) {
+      console.error('[World.updateGovernmentSatisfaction] Error updating satisfaction:', error.message);
     }
     
     // Update individual citizen satisfaction
     for (const citizenId of government.citizens) {
-      const citizen = this.citizens.find(c => c.id === citizenId);
-      if (!citizen) continue;
-      
-      // Roads provide satisfaction
-      const onRoad = this.landmarks.some(l => 
-        l.isRoad() && l.position.x === citizen.position.x && l.position.y === citizen.position.y
-      );
-      
-      if (onRoad) {
-        citizen.receiveGovernmentService();
-      }
-      
-      // Check for rebellion
-      if (citizen.shouldRebel()) {
-        citizen.governmentRole = Role.REBEL;
-        government.removeCitizen(citizenId);
+      try {
+        const citizen = this.citizens.find(c => c && c.id === citizenId);
+        if (!citizen || !citizen.position) continue;
         
-        // Track rebellion event
-        this.events.push({
-          type: 'rebellion',
-          tick: this.tickCount,
-          data: {
-            citizen: citizen.emoji,
-            governmentId: government.id,
-            governmentName: government.name,
-            position: { x: citizen.position.x, y: citizen.position.y }
+        // Roads provide satisfaction
+        const onRoad = this.landmarks.some(l => 
+          l && typeof l.isRoad === 'function' && l.isRoad() && 
+          l.position && l.position.x === citizen.position.x && l.position.y === citizen.position.y
+        );
+        
+        if (onRoad && typeof citizen.receiveGovernmentService === 'function') {
+          citizen.receiveGovernmentService();
+        }
+        
+        // Check for rebellion
+        if (typeof citizen.shouldRebel === 'function' && citizen.shouldRebel()) {
+          citizen.governmentRole = Role.REBEL;
+          if (typeof government.removeCitizen === 'function') {
+            government.removeCitizen(citizenId);
           }
-        });
+          
+          // Track rebellion event
+          this.events.push({
+            type: 'rebellion',
+            tick: this.tickCount,
+            data: {
+              citizen: citizen.emoji,
+              governmentId: government.id,
+              governmentName: government.name,
+              position: { x: citizen.position.x, y: citizen.position.y }
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`[World.updateGovernmentSatisfaction] Error processing citizen ${citizenId}:`, error.message);
       }
     }
   }
 
   private recruitCitizens(government: Government): void {
+    if (!government || !government.governmentBuildings || !Array.isArray(this.citizens)) {
+      return;
+    }
+    
     // Find independent citizens near government buildings
     for (const building of government.governmentBuildings) {
-      const nearbyCitizens = this.citizens.filter(c => {
-        const dist = Grid.distance(c.position, building.position);
-        return dist <= 3 && c.governmentId === null;
-      });
+      if (!building || !building.position) continue;
       
-      for (const citizen of nearbyCitizens) {
-        if (Math.random() < CITIZEN_RECRUITMENT_PROBABILITY) {
-          government.addCitizen(citizen.id);
-          citizen.joinGovernment(government.id, Role.CITIZEN);
+      try {
+        const nearbyCitizens = this.citizens.filter(c => {
+          if (!c || !c.position || c.governmentId !== null) return false;
+          try {
+            const dist = Grid.distance(c.position, building.position);
+            return dist <= 3;
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        for (const citizen of nearbyCitizens) {
+          if (Math.random() < CITIZEN_RECRUITMENT_PROBABILITY) {
+            if (typeof government.addCitizen === 'function' && typeof citizen.joinGovernment === 'function') {
+              government.addCitizen(citizen.id);
+              citizen.joinGovernment(government.id, Role.CITIZEN);
+            }
+          }
         }
+      } catch (error) {
+        console.error('[World.recruitCitizens] Error recruiting near building:', error.message);
       }
     }
   }

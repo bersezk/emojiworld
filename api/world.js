@@ -15,7 +15,17 @@ function getWorld() {
 }
 
 // In-memory storage for world instances with metadata
-const worldInstances = new Map(); // Map<sessionId, { world, createdAt, lastAccessedAt }>
+const worldInstances = new Map(); // Map<sessionId, { world, createdAt, lastAccessedAt, lastGoodState }>
+
+// Session configuration
+const SESSION_CONFIG = {
+  MAX_SESSIONS: 50, // Increased from 10 to 50
+  SESSION_TTL_MS: 30 * 60 * 1000, // 30 minutes TTL
+  CLEANUP_INTERVAL_MS: 5 * 60 * 1000 // Check for expired sessions every 5 minutes
+};
+
+// Track last cleanup time
+let lastCleanupTime = Date.now();
 
 // Default configuration
 const defaultConfig = {
@@ -81,6 +91,44 @@ module.exports = async function handler(req, res) {
     });
   };
 
+  // Helper function to perform session cleanup based on TTL
+  const performSessionCleanup = () => {
+    const now = Date.now();
+    
+    // Only run cleanup if enough time has passed
+    if (now - lastCleanupTime < SESSION_CONFIG.CLEANUP_INTERVAL_MS) {
+      return;
+    }
+    
+    lastCleanupTime = now;
+    const expiredSessions = [];
+    
+    for (const [sessionId, sessionData] of worldInstances.entries()) {
+      const age = now - sessionData.lastAccessedAt;
+      if (age > SESSION_CONFIG.SESSION_TTL_MS) {
+        expiredSessions.push(sessionId);
+      }
+    }
+    
+    for (const sessionId of expiredSessions) {
+      worldInstances.delete(sessionId);
+      console.log(`[Cleanup] Removed expired session: ${sessionId} (TTL exceeded)`);
+    }
+    
+    // Also cleanup by LRU if we exceed max sessions
+    if (worldInstances.size > SESSION_CONFIG.MAX_SESSIONS) {
+      const sortedSessions = Array.from(worldInstances.entries())
+        .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+      
+      const sessionsToRemove = worldInstances.size - SESSION_CONFIG.MAX_SESSIONS;
+      for (let i = 0; i < sessionsToRemove; i++) {
+        const [oldestSessionId] = sortedSessions[i];
+        worldInstances.delete(oldestSessionId);
+        console.log(`[Cleanup] Removed oldest session: ${oldestSessionId} (LRU eviction)`);
+      }
+    }
+  };
+
   // Helper function to validate session
   const validateSession = (sessionId) => {
     if (!sessionId) {
@@ -94,6 +142,28 @@ module.exports = async function handler(req, res) {
         errorCode: 'SESSION_NOT_FOUND', 
         message: `Session '${sessionId}' not found. It may have expired or been cleared. Please create a new world.`,
         hint: 'Sessions are stored in memory and cleared on server restarts or after cleanup.'
+      };
+    }
+    
+    // Check if session is expired
+    const age = Date.now() - sessionData.lastAccessedAt;
+    if (age > SESSION_CONFIG.SESSION_TTL_MS) {
+      worldInstances.delete(sessionId);
+      return {
+        valid: false,
+        errorCode: 'SESSION_EXPIRED',
+        message: `Session '${sessionId}' has expired (inactive for ${Math.round(age / 60000)} minutes). Please create a new world.`,
+        hint: `Sessions expire after ${SESSION_CONFIG.SESSION_TTL_MS / 60000} minutes of inactivity.`
+      };
+    }
+    
+    // Validate world instance health
+    if (!sessionData.world || typeof sessionData.world.tick !== 'function') {
+      return {
+        valid: false,
+        errorCode: 'SESSION_CORRUPTED',
+        message: 'Session data is corrupted. Please create a new world.',
+        hint: 'The world instance may have been damaged during a server restart.'
       };
     }
     
@@ -141,20 +211,15 @@ module.exports = async function handler(req, res) {
       worldInstances.set(newSessionId, {
         world,
         createdAt: Date.now(),
-        lastAccessedAt: Date.now()
+        lastAccessedAt: Date.now(),
+        lastGoodState: null // Will store last known good state for recovery
       });
 
-      // Clean up old instances (keep only last 10)
-      if (worldInstances.size > 10) {
-        const sortedSessions = Array.from(worldInstances.entries())
-          .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
-        const [oldestSessionId] = sortedSessions[0];
-        worldInstances.delete(oldestSessionId);
-        console.log(`[Cleanup] Removed oldest session: ${oldestSessionId}`);
-      }
+      // Perform session cleanup
+      performSessionCleanup();
 
       const executionTime = Date.now() - startTime;
-      console.log(`[Create] Session created: ${newSessionId}, execution time: ${executionTime}ms`);
+      console.log(`[Create] Session created: ${newSessionId}, total sessions: ${worldInstances.size}, execution time: ${executionTime}ms`);
 
       res.status(200).json({ sessionId: newSessionId });
     } catch (error) {
@@ -184,14 +249,68 @@ module.exports = async function handler(req, res) {
 
     const { sessionData } = validation;
     const world = sessionData.world;
+    
+    // Helper to capture world state snapshot for debugging
+    const captureStateSnapshot = () => {
+      try {
+        const stats = world.getStats ? world.getStats() : {};
+        return {
+          tick: stats.tick || sessionData.world.getTickCount?.() || 0,
+          citizens: stats.citizens || world.getCitizens?.().length || 0,
+          resources: stats.resources || world.getResources?.().length || 0,
+          landmarks: world.getLandmarks?.().length || 0,
+          timestamp: new Date().toISOString()
+        };
+      } catch (e) {
+        return { error: 'Failed to capture snapshot', message: e.message };
+      }
+    };
 
     try {
       // Update last accessed time
       sessionData.lastAccessedAt = Date.now();
-
-      world.tick();
-
+      
+      // Capture pre-tick state for debugging
+      const preTickSnapshot = captureStateSnapshot();
+      
+      // Validate world state before ticking
+      if (!world.getGrid || !world.getCitizens || !world.getResources || !world.getLandmarks) {
+        throw new Error('World instance is missing required methods. State may be corrupted.');
+      }
+      
       const grid = world.getGrid();
+      if (!grid || typeof grid.getWidth !== 'function' || typeof grid.getHeight !== 'function') {
+        throw new Error('Grid instance is invalid or corrupted.');
+      }
+
+      // Execute tick with enhanced error handling
+      try {
+        world.tick();
+      } catch (tickError) {
+        // Log detailed error context
+        console.error('[Tick] Error during world.tick():', {
+          error: tickError.message,
+          stack: tickError.stack,
+          sessionId,
+          preTickSnapshot,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Try to return last known good state if available
+        if (sessionData.lastGoodState) {
+          console.log('[Tick] Returning last known good state after error');
+          return res.status(200).json({
+            ...sessionData.lastGoodState,
+            warning: 'RECOVERED_FROM_ERROR',
+            warningMessage: 'Simulation encountered an error but recovered using cached state.',
+            errorDetails: process.env.NODE_ENV === 'development' ? tickError.message : undefined
+          });
+        }
+        
+        // No cached state available, throw error
+        throw tickError;
+      }
+
       const width = grid.getWidth();
       const height = grid.getHeight();
       const citizens = world.getCitizens();
@@ -199,6 +318,17 @@ module.exports = async function handler(req, res) {
       const landmarks = world.getLandmarks();
       const stats = world.getStats();
       const events = world.getEvents ? world.getEvents() : [];
+      
+      // Validate critical arrays
+      if (!Array.isArray(citizens)) {
+        throw new Error('Citizens data is not an array. World state corrupted.');
+      }
+      if (!Array.isArray(resources)) {
+        throw new Error('Resources data is not an array. World state corrupted.');
+      }
+      if (!Array.isArray(landmarks)) {
+        throw new Error('Landmarks data is not an array. World state corrupted.');
+      }
 
       // Create display grid matching the frontend expectations
       const display = [];
@@ -209,34 +339,61 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // Place landmarks first (base layer)
+      // Place landmarks first (base layer) - with bounds checking
       for (const landmark of landmarks) {
-        const { x, y } = landmark.position;
-        display[y][x] = landmark.character;
-      }
-
-      // Place resources (middle layer)
-      for (const resource of resources) {
-        if (!resource.collected) {
-          const { x, y } = resource.position;
-          display[y][x] = resource.character;
+        try {
+          if (!landmark || !landmark.position) continue;
+          const { x, y } = landmark.position;
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            display[y][x] = landmark.character;
+          }
+        } catch (e) {
+          console.warn('[Tick] Error placing landmark:', e.message);
         }
       }
 
-      // Place citizens (top layer)
-      for (const citizen of citizens) {
-        const { x, y } = citizen.position;
-        display[y][x] = citizen.emoji;
+      // Place resources (middle layer) - with bounds checking
+      for (const resource of resources) {
+        try {
+          if (!resource || !resource.position || resource.collected) continue;
+          const { x, y } = resource.position;
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            display[y][x] = resource.character;
+          }
+        } catch (e) {
+          console.warn('[Tick] Error placing resource:', e.message);
+        }
       }
 
-      // Collect building and breeding citizens
-      const buildingCitizens = citizens
-        .filter(c => c.isBuilding)
-        .map(c => ({ x: c.position.x, y: c.position.y }));
+      // Place citizens (top layer) - with bounds checking
+      for (const citizen of citizens) {
+        try {
+          if (!citizen || !citizen.position) continue;
+          const { x, y } = citizen.position;
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            display[y][x] = citizen.emoji;
+          }
+        } catch (e) {
+          console.warn('[Tick] Error placing citizen:', e.message);
+        }
+      }
+
+      // Collect building and breeding citizens - with error handling
+      const buildingCitizens = [];
+      const breedingCitizens = [];
       
-      const breedingCitizens = citizens
-        .filter(c => c.state === 'seeking_mate' && c.breedingPartner)
-        .map(c => ({ x: c.position.x, y: c.position.y }));
+      try {
+        for (const c of citizens) {
+          if (c && c.isBuilding && c.position) {
+            buildingCitizens.push({ x: c.position.x, y: c.position.y });
+          }
+          if (c && c.state === 'seeking_mate' && c.breedingPartner && c.position) {
+            breedingCitizens.push({ x: c.position.x, y: c.position.y });
+          }
+        }
+      } catch (e) {
+        console.warn('[Tick] Error collecting citizen states:', e.message);
+      }
 
       const executionTime = Date.now() - startTime;
 
@@ -256,25 +413,38 @@ module.exports = async function handler(req, res) {
         events: events,
         executionTime: executionTime
       };
+      
+      // Cache this as last known good state
+      sessionData.lastGoodState = worldState;
 
       // Clear events after sending them
       if (world.clearEvents) {
         world.clearEvents();
       }
 
-      if (executionTime > 5000) {
-        console.warn(`[Tick] Slow execution: ${executionTime}ms for session ${sessionId}`);
+      if (executionTime > 1000) {
+        console.warn(`[Tick] Slow execution: ${executionTime}ms for session ${sessionId}, tick ${stats.tick}`);
       }
 
       res.status(200).json(worldState);
     } catch (error) {
+      const snapshot = captureStateSnapshot();
       logError('Tick World', error);
+      
+      console.error('[Tick] Critical error context:', {
+        sessionId,
+        snapshot,
+        errorType: error.constructor.name,
+        totalSessions: worldInstances.size
+      });
+      
       res.status(500).json({ 
         error: 'TICK_FAILED',
-        message: 'Failed to tick world', 
+        message: 'Simulation encountered an error during tick execution', 
         details: error.message,
         sessionId,
-        hint: 'The simulation encountered an error. Try resetting the world.',
+        snapshot: snapshot,
+        hint: 'The simulation encountered an error. Try resetting the world. If the problem persists, the world state may be corrupted.',
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
