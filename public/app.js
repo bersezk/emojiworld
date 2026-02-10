@@ -8,6 +8,8 @@ class EmojiWorldApp {
         this.isRunning = false;
         this.tickInterval = null;
         this.speed = 5;
+        this.activityLog = [];
+        this.maxLogEntries = 100;
         
         this.canvas.width = 800;
         this.canvas.height = 600;
@@ -46,32 +48,6 @@ class EmojiWorldApp {
         this.ctx.fillText('Click "Start Simulation" to begin', this.canvas.width / 2, this.canvas.height / 2 + 20);
     }
     
-    showErrorNotification(message) {
-        // Create a temporary overlay notification
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ff6b6b;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            max-width: 300px;
-            animation: slideIn 0.3s ease-out;
-        `;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease-out';
-            setTimeout(() => document.body.removeChild(notification), 300);
-        }, 5000);
-    }
-    
     async start() {
         try {
             if (!this.sessionId) {
@@ -85,25 +61,13 @@ class EmojiWorldApp {
                     })
                 });
                 
-                // Try to get response body for detailed error info
-                const contentType = response.headers.get('content-type');
-                let data;
-                
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    const text = await response.text();
-                    data = { message: text };
-                }
-                
                 if (!response.ok) {
-                    const errorMsg = data.message || `Failed to create world: ${response.statusText}`;
-                    const errorDetail = data.detail || '';
-                    const errorAction = data.action || 'Please check if the API is running and try again.';
-                    
-                    throw new Error(`${errorMsg}\n${errorDetail}\n${errorAction}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.message || errorData.error || response.statusText;
+                    throw new Error(`Failed to create world: ${errorMessage}`);
                 }
                 
+                const data = await response.json();
                 this.sessionId = data.sessionId;
                 console.log('Session created:', this.sessionId);
             }
@@ -115,7 +79,7 @@ class EmojiWorldApp {
             this.tickInterval = setInterval(() => this.tick(), 1000 / this.speed);
         } catch (error) {
             console.error('Error starting simulation:', error);
-            alert(error.message || 'Failed to start simulation. Please check if the API is running.');
+            this.showError('Failed to start simulation', error.message);
         }
     }
     
@@ -133,6 +97,8 @@ class EmojiWorldApp {
     async reset() {
         this.pause();
         this.sessionId = null;
+        this.activityLog = [];
+        this.clearActivityLog();
         this.displayWelcome();
         this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0, buildings: 0, births: 0, growthRate: 0 });
     }
@@ -143,65 +109,48 @@ class EmojiWorldApp {
                 method: 'POST'
             });
             
-            // Try to get response body for detailed error info
-            const contentType = response.headers.get('content-type');
-            let data;
-            
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                // Fallback for non-JSON responses
-                const text = await response.text();
-                data = { message: text };
-            }
-            
             if (!response.ok) {
-                // Handle different error scenarios
-                if (response.status === 404) {
-                    // Session not found - attempt recovery
-                    console.warn('Session not found, attempting recovery...', data);
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Tick error response:', errorData);
+                
+                // Handle session not found - attempt recovery
+                if (response.status === 404 || errorData.errorCode === 'SESSION_NOT_FOUND') {
+                    console.warn('Session lost, attempting recovery...');
+                    this.sessionId = null;
                     this.pause();
                     
-                    const errorMsg = data.message || 'Session not found';
-                    const errorDetail = data.detail || 'The session may have expired due to serverless cold start.';
-                    const shouldRecover = confirm(`${errorMsg}\n\n${errorDetail}\n\nWould you like to start a new simulation?`);
+                    // Show error with recovery option
+                    const shouldRecover = confirm(
+                        'Session lost (server may have restarted).\n\n' + 
+                        'This is common on serverless platforms like Vercel.\n\n' +
+                        'Click OK to start a new simulation, or Cancel to stop.'
+                    );
                     
                     if (shouldRecover) {
-                        await this.reset();
                         await this.start();
                     }
                     return;
-                } else if (response.status >= 500 && response.status < 600) {
-                    // Server error - could be transient, try to continue but warn user
-                    console.error('Server error during tick:', data);
-                    
-                    const errorMsg = data.message || 'Server error occurred';
-                    const errorDetail = data.detail || 'This may be a temporary issue.';
-                    
-                    // Don't stop simulation for transient errors, just log
-                    console.warn(`Continuing simulation despite error: ${errorMsg} - ${errorDetail}`);
-                    
-                    // Show a less intrusive notification
-                    this.showErrorNotification(`${errorMsg}. Attempting to continue...`);
-                    return;
                 }
                 
-                // Other errors - show detailed message and stop
-                const errorMsg = data.message || `Tick failed: ${response.statusText}`;
-                const errorDetail = data.detail || '';
-                const errorAction = data.action || 'Please reset and try again.';
-                
-                throw new Error(`${errorMsg}\n${errorDetail}\n${errorAction}`);
+                // Handle other errors
+                const errorMessage = errorData.message || errorData.error || response.statusText;
+                throw new Error(`Tick failed: ${errorMessage}`);
+            }
+            
+            const data = await response.json();
+            
+            // Log performance warnings
+            if (data.executionTime && data.executionTime > 1000) {
+                console.warn(`Slow tick: ${data.executionTime}ms`);
             }
             
             this.render(data);
             this.updateStats(data);
+            this.updateActivityLog(data.events || []);
         } catch (error) {
             console.error('Error during tick:', error);
             this.pause();
-            
-            // Show detailed error message
-            alert(error.message || 'Simulation error occurred. Please reset and try again.');
+            this.showError('Simulation Error', error.message + '\n\nPlease reset and try again.');
         }
     }
     
@@ -279,6 +228,103 @@ class EmojiWorldApp {
         document.getElementById('births').textContent = data.births || 0;
         document.getElementById('growth-rate').textContent = (data.growthRate || 0).toFixed(4);
         document.getElementById('ticks').textContent = data.ticks || 0;
+    }
+    
+    showError(title, message) {
+        // Use a more informative alert for now
+        alert(`${title}\n\n${message}`);
+    }
+    
+    updateActivityLog(events) {
+        if (!events || events.length === 0) return;
+        
+        const logContainer = document.getElementById('activity-log');
+        
+        events.forEach(event => {
+            // Add to log array
+            this.activityLog.push(event);
+            
+            // Keep only last maxLogEntries
+            if (this.activityLog.length > this.maxLogEntries) {
+                this.activityLog.shift();
+            }
+            
+            // Create event element
+            const eventElement = this.createEventElement(event);
+            
+            // Add to top of log
+            logContainer.insertBefore(eventElement, logContainer.firstChild);
+            
+            // Remove old entries from DOM
+            while (logContainer.children.length > this.maxLogEntries) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        });
+        
+        // Auto-scroll to top to show latest events
+        logContainer.scrollTop = 0;
+    }
+    
+    createEventElement(event) {
+        const eventDiv = document.createElement('div');
+        eventDiv.className = `activity-event ${event.type}`;
+        
+        let icon = '';
+        let title = '';
+        let details = '';
+        
+        switch(event.type) {
+            case 'building':
+                icon = '🏗️';
+                title = `New ${event.data.building}`;
+                details = `${event.data.citizen} built a ${event.data.building} ${event.data.symbol} at (${event.data.position.x}, ${event.data.position.y})`;
+                break;
+                
+            case 'birth':
+                icon = '👶';
+                title = 'New Birth';
+                details = `${event.data.parents[0]} + ${event.data.parents[1]} → ${event.data.offspring} at (${event.data.position.x}, ${event.data.position.y})`;
+                break;
+                
+            case 'government':
+                icon = '🏛️';
+                title = 'Government Formed';
+                details = `${event.data.governmentName} (${event.data.governmentType}) with ${event.data.citizens} citizens at (${event.data.location.x}, ${event.data.location.y})`;
+                break;
+                
+            case 'tax':
+                icon = '💰';
+                title = 'Tax Collection';
+                details = `${event.data.governmentName} collected ${event.data.totalCollected} resources from ${event.data.citizenCount} citizens`;
+                break;
+                
+            case 'rebellion':
+                icon = '⚔️';
+                title = 'Rebellion!';
+                details = `${event.data.citizen} rebelled against ${event.data.governmentName}`;
+                break;
+                
+            default:
+                icon = '📌';
+                title = 'Event';
+                details = JSON.stringify(event.data);
+        }
+        
+        eventDiv.innerHTML = `
+            <div class="activity-event-header">
+                <span class="activity-event-icon">${icon}</span>
+                <span>${title}</span>
+            </div>
+            <div class="activity-event-details">${details}</div>
+            <div class="activity-event-time">Tick ${event.tick}</div>
+        `;
+        
+        return eventDiv;
+    }
+    
+    clearActivityLog() {
+        const logContainer = document.getElementById('activity-log');
+        logContainer.innerHTML = '';
     }
 }
 

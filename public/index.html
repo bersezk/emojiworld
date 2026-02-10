@@ -14,33 +14,40 @@
         </header>
         
         <main>
-            <div id="world-container">
-                <canvas id="world-canvas"></canvas>
-            </div>
-            
-            <div id="controls">
-                <button id="start-btn">Start Simulation</button>
-                <button id="pause-btn" disabled>Pause</button>
-                <button id="reset-btn">Reset</button>
-                <div id="speed-control">
-                    <label for="speed">Speed:</label>
-                    <input type="range" id="speed" min="1" max="10" value="5">
-                    <span id="speed-value">5x</span>
+            <div id="main-content">
+                <div id="world-container">
+                    <canvas id="world-canvas"></canvas>
+                </div>
+                
+                <div id="controls">
+                    <button id="start-btn">Start Simulation</button>
+                    <button id="pause-btn" disabled>Pause</button>
+                    <button id="reset-btn">Reset</button>
+                    <div id="speed-control">
+                        <label for="speed">Speed:</label>
+                        <input type="range" id="speed" min="1" max="10" value="5">
+                        <span id="speed-value">5x</span>
+                    </div>
+                </div>
+                
+                <div id="stats">
+                    <h3>Statistics</h3>
+                    <div id="stats-content">
+                        <p>Population: <span id="population">0</span></p>
+                        <p>Resources: <span id="resources">0</span></p>
+                        <p>Landmarks: <span id="landmarks">0</span></p>
+                        <p>Buildings Built: <span id="buildings">0</span></p>
+                        <p>Total Births: <span id="births">0</span></p>
+                        <p>Growth Rate: <span id="growth-rate">0.00</span> births/tick</p>
+                        <p>Ticks: <span id="ticks">0</span></p>
+                    </div>
                 </div>
             </div>
             
-            <div id="stats">
-                <h3>Statistics</h3>
-                <div id="stats-content">
-                    <p>Population: <span id="population">0</span></p>
-                    <p>Resources: <span id="resources">0</span></p>
-                    <p>Landmarks: <span id="landmarks">0</span></p>
-                    <p>Buildings Built: <span id="buildings">0</span></p>
-                    <p>Total Births: <span id="births">0</span></p>
-                    <p>Growth Rate: <span id="growth-rate">0.00</span> births/tick</p>
-                    <p>Ticks: <span id="ticks">0</span></p>
-                </div>
-            </div>
+            <aside id="activity-sidebar">
+                <h3>📋 Activity Log</h3>
+                <div id="activity-log"></div>
+            </aside>
         </main>
     </div>
     
