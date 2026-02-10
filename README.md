@@ -87,7 +87,7 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 - **Social Credit Score**: Each citizen has a score (0-1000, starts at 500)
 - **Criminal Status**: Low credit (<200) = criminal, High credit (>800) = model citizen
 - **Crime Types**:
-  - **🔪 Theft**: Stealing resources (-50 credit)
+  - **💰 Theft**: Stealing resources (-50 credit)
   - **💥 Vandalism**: Destroying buildings (-80 credit)
   - **⚔️ Assault**: Attacking other citizens (-100 credit)
   - **🚫 Trespassing**: Entering restricted areas (-20 credit)

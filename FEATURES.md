@@ -384,7 +384,7 @@ Watch these patterns emerge naturally:
 
 ### Crime Triggering
 
-**Theft (🔪)**
+**Theft (💰)**
 - Probability: 2% if unemployed, 1% if low satisfaction
 - Requirements: Nearby uncollected resources
 - Penalty: -50 social credit

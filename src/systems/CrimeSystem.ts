@@ -27,7 +27,7 @@ export interface CrimeDefinition {
 export const CRIME_DEFINITIONS: Record<CrimeType, CrimeDefinition> = {
   THEFT: {
     type: 'THEFT',
-    emoji: '🔪',
+    emoji: '💰',
     socialCreditPenalty: 50,
     detentionTime: 100,
     description: 'Stealing resources from others'

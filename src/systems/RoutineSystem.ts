@@ -19,6 +19,7 @@ export interface RoutineSystemConfig {
 
 export class RoutineSystem {
   private config: RoutineSystemConfig;
+  private currentTickCount: number;
 
   constructor(config?: Partial<RoutineSystemConfig>) {
     // Default configuration
@@ -33,9 +34,11 @@ export class RoutineSystem {
       nightEnd: 6,
       ...config
     };
+    this.currentTickCount = 0;
   }
 
   update(citizens: Citizen[], landmarks: Landmark[], tickCount: number): void {
+    this.currentTickCount = tickCount;
     const timeOfDay = this.getTimeOfDay(tickCount);
 
     for (const citizen of citizens) {
@@ -122,11 +125,16 @@ export class RoutineSystem {
     
     // Check if employed and should prepare for work
     if (citizen.isEmployed() && citizen.job) {
-      // If it's near work time, start commuting
-      const currentTime = this.getTimeOfDay(0); // This won't work, need to pass tickCount
-      // For now, just seek resources (breakfast)
+      // If near work time, start preparing
+      const currentTime = this.getTimeOfDay(this.currentTickCount);
+      const isNearWorkTime = currentTime.hour >= (this.config.workStart - 1);
+      
+      // Seek resources (breakfast) if hungry
       if (citizen.needs.hunger < 60 && citizen.state !== 'seeking_resource') {
         citizen.state = 'seeking_resource';
+      } else if (isNearWorkTime && citizen.needs.hunger >= 50) {
+        // Start heading to work if not too hungry
+        citizen.performRoutine('commuting_to_work');
       }
     } else {
       // Unemployed morning routine - just wander or socialize
