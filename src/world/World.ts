@@ -2,6 +2,10 @@ import { Grid, Position } from './Grid';
 import { Citizen, CitizenCategory, BUILDING_RECIPES } from '../entities/Citizen';
 import { Resource } from '../entities/Resource';
 import { Landmark, LandmarkType } from '../entities/Landmark';
+import { Government, GovernmentType, Role } from '../entities/Government';
+
+// Government constants
+const CITIZEN_RECRUITMENT_PROBABILITY = 0.3; // 30% chance to join nearby government
 
 export interface WorldConfig {
   world: {
@@ -38,6 +42,7 @@ export class World {
   private citizens: Citizen[];
   private resources: Resource[];
   private landmarks: Landmark[];
+  private governments: Government[];
   private config: WorldConfig;
   private tickCount: number;
   private running: boolean;
@@ -50,6 +55,7 @@ export class World {
     this.citizens = [];
     this.resources = [];
     this.landmarks = [];
+    this.governments = [];
     this.tickCount = 0;
     this.running = false;
     this.totalBuildings = 0;
@@ -210,6 +216,12 @@ export class World {
       }
     }
 
+    // Check for government formation near Town Halls
+    this.checkGovernmentFormation();
+
+    // Process governments
+    this.processGovernments();
+
     // Respawn resources
     if (Math.random() < this.config.resources.respawnRate) {
       const collected = this.resources.filter(r => r.collected);
@@ -353,5 +365,149 @@ export class World {
 
   getPopulationCount(): number {
     return this.citizens.length;
+  }
+
+  getGovernments(): Government[] {
+    return this.governments;
+  }
+
+  // Government formation check
+  private checkGovernmentFormation(): void {
+    const townHalls = this.landmarks.filter(l => l.type === 'town_hall');
+    
+    for (const townHall of townHalls) {
+      // Check if this town hall already has a government
+      const existingGov = this.governments.find(g => 
+        g.governmentBuildings.some(b => b.position.x === townHall.position.x && b.position.y === townHall.position.y)
+      );
+      
+      if (existingGov) continue;
+      
+      // Find nearby citizens (within 5 tiles)
+      const nearbyCitizens = this.citizens.filter(c => {
+        const dist = Grid.distance(c.position, townHall.position);
+        return dist <= 5 && c.governmentId === null;
+      });
+      
+      // Need at least 5 citizens to form a government
+      if (nearbyCitizens.length >= 5) {
+        this.formGovernment(townHall, nearbyCitizens);
+      }
+    }
+  }
+
+  private formGovernment(townHall: Landmark, citizens: Citizen[]): void {
+    const govId = `gov_${this.governments.length + 1}`;
+    const govName = `Government ${this.governments.length + 1}`;
+    
+    // Randomly choose government type
+    const types = [GovernmentType.DEMOCRACY, GovernmentType.MONARCHY, GovernmentType.COUNCIL];
+    const govType = types[Math.floor(Math.random() * types.length)];
+    
+    const government = new Government(govId, govName, govType, this.tickCount);
+    government.addBuilding(townHall);
+    
+    // Select first 5 citizens to join
+    for (let i = 0; i < Math.min(5, citizens.length); i++) {
+      const citizen = citizens[i];
+      if (i === 0) {
+        // First citizen becomes leader
+        government.setLeader(citizen);
+        citizen.joinGovernment(govId, Role.LEADER);
+      } else if (i < 3) {
+        // Next two become officials
+        government.addOfficial(citizen.id);
+        citizen.joinGovernment(govId, Role.OFFICIAL);
+      } else {
+        // Rest are regular citizens
+        government.addCitizen(citizen.id);
+        citizen.joinGovernment(govId, Role.CITIZEN);
+      }
+    }
+    
+    this.governments.push(government);
+  }
+
+  private processGovernments(): void {
+    for (const government of this.governments) {
+      // Collect taxes every 100 ticks
+      if (this.tickCount % 100 === 0) {
+        this.collectTaxes(government);
+      }
+      
+      // Update satisfaction based on services
+      if (this.tickCount % 50 === 0) {
+        this.updateGovernmentSatisfaction(government);
+      }
+      
+      // Recruit new citizens nearby government buildings
+      if (this.tickCount % 200 === 0) {
+        this.recruitCitizens(government);
+      }
+    }
+  }
+
+  private collectTaxes(government: Government): void {
+    for (const citizenId of government.citizens) {
+      const citizen = this.citizens.find(c => c.id === citizenId);
+      if (!citizen) continue;
+      
+      const taxes = citizen.payTax(government.taxRate, this.tickCount);
+      for (const resource of taxes) {
+        government.addToTreasury(resource, 1);
+      }
+    }
+  }
+
+  private updateGovernmentSatisfaction(government: Government): void {
+    const treasurySize = government.getTreasuryTotal();
+    const citizenCount = government.getCitizenCount();
+    
+    // More resources per citizen = better satisfaction
+    const resourcesPerCitizen = citizenCount > 0 ? treasurySize / citizenCount : 0;
+    
+    if (resourcesPerCitizen > 5) {
+      government.updateSatisfaction(2);
+    } else if (resourcesPerCitizen < 1) {
+      government.updateSatisfaction(-2);
+    }
+    
+    // Update individual citizen satisfaction
+    for (const citizenId of government.citizens) {
+      const citizen = this.citizens.find(c => c.id === citizenId);
+      if (!citizen) continue;
+      
+      // Roads provide satisfaction
+      const onRoad = this.landmarks.some(l => 
+        l.isRoad() && l.position.x === citizen.position.x && l.position.y === citizen.position.y
+      );
+      
+      if (onRoad) {
+        citizen.receiveGovernmentService();
+      }
+      
+      // Check for rebellion
+      if (citizen.shouldRebel()) {
+        citizen.governmentRole = Role.REBEL;
+        government.removeCitizen(citizenId);
+      }
+    }
+  }
+
+  private recruitCitizens(government: Government): void {
+    // Find independent citizens near government buildings
+    for (const building of government.governmentBuildings) {
+      const nearbyCitizens = this.citizens.filter(c => {
+        const dist = Grid.distance(c.position, building.position);
+        return dist <= 3 && c.governmentId === null;
+      });
+      
+      for (const citizen of nearbyCitizens) {
+        if (Math.random() < CITIZEN_RECRUITMENT_PROBABILITY) {
+          government.addCitizen(citizen.id);
+          citizen.joinGovernment(government.id, Role.CITIZEN);
+        }
+      }
+    }
   }
 }

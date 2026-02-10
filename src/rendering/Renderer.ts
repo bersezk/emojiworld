@@ -99,5 +99,33 @@ export class Renderer {
     }
 
     console.log('\n⌨️  Controls: Press Ctrl+C to stop simulation\n');
+
+    // Display infrastructure statistics
+    const landmarks = world.getLandmarks();
+    const roads = landmarks.filter(l => l.isRoad());
+    const govBuildings = landmarks.filter(l => l.isGovernmentBuilding());
+    
+    console.log('\n🛣️  Infrastructure:');
+    console.log(`  Total Roads: ${roads.length}`);
+    console.log(`  Horizontal: ${landmarks.filter(l => l.type === 'horizontal_road').length}`);
+    console.log(`  Vertical: ${landmarks.filter(l => l.type === 'vertical_road').length}`);
+    console.log(`  Intersections: ${landmarks.filter(l => l.type === 'intersection').length}`);
+    console.log(`  Government Buildings: ${govBuildings.length}`);
+
+    // Display government statistics
+    const governments = world.getGovernments();
+    if (governments.length > 0) {
+      console.log('\n🏛️  Governments:');
+      for (const gov of governments) {
+        console.log(`  ${gov.name} (${gov.type})`);
+        console.log(`    Leader: ${gov.leader ? gov.leader.emoji : 'None'}`);
+        console.log(`    Citizens: ${gov.getCitizenCount()}`);
+        console.log(`    Officials: ${gov.getOfficialCount()}`);
+        console.log(`    Treasury: ${gov.getTreasuryTotal()} resources`);
+        console.log(`    Tax Rate: ${(gov.taxRate * 100).toFixed(0)}%`);
+        console.log(`    Satisfaction: ${gov.satisfaction.toFixed(0)}%`);
+        console.log(`    Roads Built: ${gov.getRoadCount()}`);
+      }
+    }
   }
 }

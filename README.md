@@ -24,8 +24,43 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 - **AI-Driven Behavior**: Each emoji citizen has autonomous decision-making based on their needs
 - **Need System**: Citizens manage hunger, energy, and social needs
 - **Multiple Categories**: People (🧑👨👩🧒), Animals (🐕🐈🐦🐰🐻), and Food (🍎🍌🍕🍔)
-- **States**: Wandering, seeking resources, seeking shelter, resting, and socializing
-- **Inventory System**: Citizens can collect and carry resources
+- **States**: Wandering, seeking resources, seeking shelter, resting, socializing, and building
+- **Inventory System**: Citizens can collect and carry resources (up to 10 items)
+- **Breeding System**: Citizens can reproduce when conditions are right
+
+### 🏗️ Building System
+- **Citizen-Built Structures**: Citizens collect resources and construct buildings
+- **Multiple Building Types**:
+  - **Home (⌂)**: Resting places (H+O+M+E resources)
+  - **Storage (□)**: Resource storage (S+T+O+R resources)
+  - **Meeting (◊)**: Social spaces (M+E+E+T resources)
+  - **Farm (⚘)**: Food production (F+A+R+M resources)
+  - **Wall (█)**: Barriers and boundaries (W+A+L resources)
+
+### 🛣️ Road Infrastructure
+- **Road Network**: Citizens build roads for faster travel
+- **Road Types**:
+  - **Horizontal Road (=)**: Standard east-west passage
+  - **Vertical Road (║)**: Standard north-south passage
+  - **Intersection (╬)**: Where roads cross
+- **Benefits**:
+  - 2x faster movement speed on roads
+  - 50% less energy consumption while traveling
+  - Citizens prefer to follow existing roads
+
+### 🏛️ Government System
+- **Government Formation**: When 5+ citizens gather near a Town Hall, they form a government
+- **Government Types**: Democracy, Monarchy, Council, or Anarchy
+- **Government Buildings**:
+  - **Town Hall (🏛)**: Center of governance (G+O+V+T+H+A+L+L resources)
+  - **Courthouse (⚖)**: Law and justice (C+O+U+R+T resources)
+  - **Treasury (💰)**: Resource management (T+R+E+A+S+U+R+Y resources)
+  - **Police Station (🚓)**: Order and security (P+O+L+I+C+E resources)
+  - **Public Works (⚙)**: Infrastructure management (W+O+R+K+S resources)
+- **Citizen Roles**: Leader, Official, Citizen, Rebel, or Independent
+- **Tax System**: Governments collect resources from citizens (default 15% rate)
+- **Satisfaction**: Citizens track happiness with their government
+- **Rebellion**: Dissatisfied citizens may rebel and leave government
 
 ### 🏛️ Symbol-Based Landmarks
 - **Home (⌂)**: Resting places where citizens restore energy
@@ -201,8 +236,9 @@ The project follows a modular architecture:
     - Grid.ts           # 2D grid system with spatial queries
   /entities
     - Citizen.ts        # Emoji AI agents with behavior system
-    - Landmark.ts       # Symbol-based structures
+    - Landmark.ts       # Symbol-based structures and roads
     - Resource.ts       # Alphabet resource items
+    - Government.ts     # Government system and management
   /rendering
     - Renderer.ts       # Console-based visualization
   /config
@@ -210,16 +246,52 @@ The project follows a modular architecture:
   - main.ts             # Entry point and simulation runner
 ```
 
+## Documentation
+
+- **[GOVERNMENT_SYSTEM.md](GOVERNMENT_SYSTEM.md)**: Comprehensive guide to roads and government features
+- Covers road mechanics, government buildings, formation, taxation, and more
+
 ## How It Works
 
 ### Citizen AI Behavior
 
-Each citizen operates on a simple priority system:
+Each citizen operates on a priority system:
 
 1. **Energy Critical (<20)**: Seek nearest home to rest
 2. **Hunger Critical (<30)**: Seek nearest resource to collect
-3. **Social Need (<30)**: Seek nearest other citizen to socialize
-4. **Otherwise**: Wander randomly around the world
+3. **Breeding Ready**: Seek mate if conditions are right (age>100, energy>60)
+4. **Building Ready**: Collect resources and construct buildings (random 5% chance)
+5. **Social Need (<30)**: Seek nearest other citizen to socialize
+6. **Otherwise**: Wander randomly around the world
+
+### Building System
+
+Citizens autonomously collect resources and build structures:
+- When ready to build, citizens select a random building type
+- They collect the required letter resources (e.g., H+O+M+E for a home)
+- Once resources are gathered, they spend build time constructing
+- Buildings appear on the map with their unique symbols
+- Roads (70% of buildings) provide speed and energy bonuses
+- Government buildings (5% chance) enable government formation
+
+### Government System
+
+Governments form organically when conditions are met:
+- A Town Hall must be built by citizens
+- 5 or more independent citizens gather nearby (within 5 tiles)
+- Government automatically forms with randomly assigned type
+- First citizen becomes Leader, next two become Officials
+- Governments collect taxes every 100 ticks
+- Citizen satisfaction affects loyalty and potential rebellion
+- Multiple governments can coexist and recruit citizens
+
+### Road Benefits
+
+Roads transform citizen movement:
+- **Speed**: Citizens move 2x faster on roads (half the normal time)
+- **Efficiency**: 50% reduced energy consumption while on roads
+- **Network**: Roads connect buildings and create efficient pathways
+- **Walkable**: Roads don't block movement - citizens walk across them
 
 ### Movement System
 
@@ -231,8 +303,10 @@ Each citizen operates on a simple priority system:
 
 - Resources spawn randomly at world initialization
 - Citizens automatically collect resources when walking over them
+- Collected resources go into citizen inventory (10 item capacity)
+- Resources are used for building structures
 - Collected resources can respawn at new locations
-- Each citizen has limited inventory capacity (5 items)
+- Governments collect resources through taxation
 
 ### Need Decay
 
@@ -293,6 +367,11 @@ As the simulation runs, you'll notice emergent behaviors:
 - **Social Circles**: Citizens with low social needs gravitate toward each other
 - **Home-seeking**: As energy depletes, citizens migrate toward homes
 - **Wandering Patterns**: Content citizens explore the world randomly
+- **Building Clusters**: Citizens build near existing structures, creating towns
+- **Road Networks**: Roads naturally connect important buildings
+- **Government Formation**: Communities form around Town Halls
+- **Tax Collection**: Governments accumulate resources from citizens
+- **Satisfaction Cycles**: Happy citizens stay loyal; unhappy ones may rebel
 
 ## Technical Details
 
@@ -329,13 +408,17 @@ emojiworld/
 Potential additions for the simulation:
 - 🔄 Save/load world state
 - 🌍 Different biomes or zones with unique properties
-- 👶 Citizen reproduction and lifecycle
+- 👶 Advanced lifecycle with aging and natural death
 - 🧠 More complex AI behaviors (learning, memory)
-- 🌐 Web-based interactive visualization
+- 🌐 Enhanced web-based interactive visualization
 - 🔊 Sound effects for actions
 - 📊 Advanced statistics and analytics dashboard
-- 🎨 Color-coded citizen states
+- 🎨 Color-coded citizen states and territories
 - 💬 Citizen communication system
+- 🗳️ Elections in democratic governments
+- 🤝 Inter-government trade and alliances
+- 🗺️ Territory expansion and border conflicts
+- 🛣️ Smart road pathfinding and optimization
 
 ## License
 

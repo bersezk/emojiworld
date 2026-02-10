@@ -1,10 +1,11 @@
 import { Position, Grid } from '../world/Grid';
 import { Resource } from './Resource';
 import { Landmark } from './Landmark';
+import { Role } from './Government';
 
 export type CitizenState = 'wandering' | 'seeking_resource' | 'seeking_shelter' | 'resting' | 'socializing' | 'building' | 'seeking_mate';
 export type CitizenCategory = 'people' | 'animals' | 'food';
-export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL';
+export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL' | 'HORIZONTAL_ROAD' | 'VERTICAL_ROAD' | 'INTERSECTION' | 'TOWN_HALL' | 'COURTHOUSE' | 'TREASURY' | 'POLICE_STATION' | 'PUBLIC_WORKS';
 
 export interface CitizenNeeds {
   hunger: number;      // 0-100
@@ -43,6 +44,46 @@ export const BUILDING_RECIPES: Record<BuildingType, BuildingRecipe> = {
     symbol: '█', 
     resources: ['W', 'A', 'L'], 
     buildTime: 5 
+  },
+  HORIZONTAL_ROAD: {
+    symbol: '=',
+    resources: ['R', 'O', 'A', 'D'],
+    buildTime: 3
+  },
+  VERTICAL_ROAD: {
+    symbol: '║',
+    resources: ['R', 'O', 'A', 'D'],
+    buildTime: 3
+  },
+  INTERSECTION: {
+    symbol: '╬',
+    resources: ['R', 'O', 'A', 'D', 'X'],
+    buildTime: 4
+  },
+  TOWN_HALL: {
+    symbol: '🏛',
+    resources: ['G', 'O', 'V', 'T', 'H', 'A', 'L', 'L'],
+    buildTime: 20
+  },
+  COURTHOUSE: {
+    symbol: '⚖',
+    resources: ['C', 'O', 'U', 'R', 'T'],
+    buildTime: 15
+  },
+  TREASURY: {
+    symbol: '💰',
+    resources: ['T', 'R', 'E', 'A', 'S', 'U', 'R', 'Y'],
+    buildTime: 12
+  },
+  POLICE_STATION: {
+    symbol: '🚓',
+    resources: ['P', 'O', 'L', 'I', 'C', 'E'],
+    buildTime: 10
+  },
+  PUBLIC_WORKS: {
+    symbol: '⚙',
+    resources: ['W', 'O', 'R', 'K', 'S'],
+    buildTime: 8
   }
 };
 
@@ -53,6 +94,10 @@ export const BREEDING_REQUIREMENTS = {
   proximityRange: 2,
   maxPopulation: 100
 };
+
+// Movement and government constants
+const ROAD_SPEED_BOOST_THRESHOLD = 0.5; // Minimum movement threshold on roads
+const REBELLION_CHANCE_PER_TICK = 0.01; // 1% chance per tick when conditions met
 
 export class Citizen {
   public id: string;
@@ -80,6 +125,14 @@ export class Citizen {
 
   // Energy system
   public energy: number;
+
+  // Government system
+  public governmentId: string | null;
+  public governmentRole: Role;
+  public taxesPaid: number;
+  public satisfaction: number;
+  public loyaltyToGov: number;
+  public lastTaxTime: number;
 
   private moveCounter: number;
 
@@ -121,6 +174,14 @@ export class Citizen {
 
     // Initialize energy
     this.energy = 80;
+
+    // Initialize government properties
+    this.governmentId = null;
+    this.governmentRole = Role.INDEPENDENT;
+    this.taxesPaid = 0;
+    this.satisfaction = 70;
+    this.loyaltyToGov = 50;
+    this.lastTaxTime = -100;
   }
 
   // Update citizen AI each tick
@@ -128,13 +189,17 @@ export class Citizen {
     // Increment age
     this.age++;
 
+    // Check if on a road for energy bonus
+    const onRoad = this.isOnRoad(allEntities.landmarks);
+    const energyDecay = onRoad ? 0.015 : 0.03; // 50% less energy on roads
+
     // Decay needs
     this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
     this.needs.energy = Math.max(0, this.needs.energy - 0.05);
     this.needs.social = Math.max(0, this.needs.social - 0.08);
 
-    // Decay energy
-    this.energy = Math.max(0, this.energy - 0.03);
+    // Decay energy (reduced on roads)
+    this.energy = Math.max(0, this.energy - energyDecay);
 
     // Handle building progress
     if (this.isBuilding) {
@@ -145,12 +210,22 @@ export class Citizen {
     // Decide on action based on state and needs
     this.decideAction(grid, allEntities, tickCount);
 
-    // Move towards target if exists
+    // Move towards target if exists (move faster on roads)
     this.moveCounter++;
-    if (this.moveCounter >= this.movementSpeed) {
+    const moveThreshold = onRoad ? Math.max(ROAD_SPEED_BOOST_THRESHOLD, this.movementSpeed / 2) : this.movementSpeed;
+    if (this.moveCounter >= moveThreshold) {
       this.moveCounter = 0;
       this.move(grid, allEntities.landmarks);
     }
+  }
+
+  private isOnRoad(landmarks: Landmark[]): boolean {
+    for (const landmark of landmarks) {
+      if (landmark.position.x === this.position.x && landmark.position.y === this.position.y) {
+        return landmark.isRoad();
+      }
+    }
+    return false;
   }
 
   private decideAction(grid: Grid, entities: { citizens: Citizen[], resources: Resource[], landmarks: Landmark[] }, tickCount: number): void {
@@ -347,9 +422,20 @@ export class Citizen {
   private planBuilding(): void {
     if (this.buildingTarget) return; // Already have a plan
     
-    // Randomly choose a building type
-    const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL'];
-    this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+    // Randomly choose a building type (government buildings are rarer)
+    const rand = Math.random();
+    if (rand < 0.7) {
+      // 70% chance of regular buildings
+      const buildingTypes: BuildingType[] = ['HOME', 'STORAGE', 'MEETING', 'FARM', 'WALL', 'HORIZONTAL_ROAD', 'VERTICAL_ROAD'];
+      this.buildingTarget = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+    } else if (rand < 0.95) {
+      // 25% chance of intersection (25% of remaining 30%)
+      this.buildingTarget = 'INTERSECTION';
+    } else {
+      // 5% chance of government buildings
+      const govBuildings: BuildingType[] = ['TOWN_HALL', 'COURTHOUSE', 'TREASURY', 'POLICE_STATION', 'PUBLIC_WORKS'];
+      this.buildingTarget = govBuildings[Math.floor(Math.random() * govBuildings.length)];
+    }
   }
 
   private findResourcesForBuilding(resources: Resource[]): void {
@@ -506,5 +592,68 @@ export class Citizen {
     partner.needs.hunger = Math.max(0, partner.needs.hunger - 30);
     this.breedingPartner = null;
     partner.breedingPartner = null;
+  }
+
+  // Government methods
+  joinGovernment(governmentId: string, role: Role = Role.CITIZEN): void {
+    this.governmentId = governmentId;
+    this.governmentRole = role;
+    this.satisfaction = 70;
+    this.loyaltyToGov = 60;
+  }
+
+  leaveGovernment(): void {
+    this.governmentId = null;
+    this.governmentRole = Role.INDEPENDENT;
+  }
+
+  payTax(taxRate: number, tickCount: number): string[] {
+    // Pay taxes every 100 ticks
+    if (tickCount - this.lastTaxTime < 100) return [];
+    
+    const taxableItems: string[] = [];
+    const taxAmount = Math.floor(this.inventory.length * taxRate);
+    
+    for (let i = 0; i < taxAmount && this.inventory.length > 0; i++) {
+      const resource = this.inventory.shift();
+      if (resource) {
+        taxableItems.push(resource);
+        this.taxesPaid++;
+      }
+    }
+    
+    this.lastTaxTime = tickCount;
+    
+    // High taxes reduce satisfaction
+    if (taxRate > 0.3) {
+      this.satisfaction = Math.max(0, this.satisfaction - 2);
+      this.loyaltyToGov = Math.max(0, this.loyaltyToGov - 1);
+    }
+    
+    return taxableItems;
+  }
+
+  receiveGovernmentService(): void {
+    // Receiving government services increases satisfaction
+    this.satisfaction = Math.min(100, this.satisfaction + 1);
+    this.loyaltyToGov = Math.min(100, this.loyaltyToGov + 0.5);
+  }
+
+  updateGovernmentSatisfaction(delta: number): void {
+    this.satisfaction = Math.max(0, Math.min(100, this.satisfaction + delta));
+    
+    // Satisfaction affects loyalty
+    if (this.satisfaction < 30) {
+      this.loyaltyToGov = Math.max(0, this.loyaltyToGov - 1);
+    } else if (this.satisfaction > 70) {
+      this.loyaltyToGov = Math.min(100, this.loyaltyToGov + 0.5);
+    }
+  }
+
+  shouldRebel(): boolean {
+    return this.governmentId !== null && 
+           this.satisfaction < 20 && 
+           this.loyaltyToGov < 20 && 
+           Math.random() < REBELLION_CHANCE_PER_TICK;
   }
 }
