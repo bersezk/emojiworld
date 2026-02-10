@@ -132,6 +132,24 @@ export class World {
         this.landmarks.push(new Landmark(pos, type, char));
       }
     }
+    
+    // Create initial government buildings for job system
+    // This ensures police stations exist for police officer jobs
+    this.createInitialGovernmentBuildings();
+  }
+
+  private createInitialGovernmentBuildings(): void {
+    // Create one police station
+    const policePos = this.getRandomEmptyPosition();
+    if (policePos) {
+      this.landmarks.push(new Landmark(policePos, 'police_station', '🚓'));
+    }
+    
+    // Create one farm
+    const farmPos = this.getRandomEmptyPosition();
+    if (farmPos) {
+      this.landmarks.push(new Landmark(farmPos, 'farm', '⚘'));
+    }
   }
 
   private createResources(): void {
