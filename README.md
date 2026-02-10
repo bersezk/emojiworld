@@ -155,7 +155,7 @@ The web interface will be available at your Vercel URL (e.g., `https://emojiworl
 You may see this warning during local development:
 
 ```
-(node:4) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized...
+(node:XXXX) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized...
 ```
 
 **This is harmless.** The warning comes from Vercel's internal routing system, not the application code. 
