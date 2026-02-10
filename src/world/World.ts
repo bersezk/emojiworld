@@ -3,12 +3,16 @@ import { Citizen, CitizenCategory, BUILDING_RECIPES } from '../entities/Citizen'
 import { Resource } from '../entities/Resource';
 import { Landmark, LandmarkType } from '../entities/Landmark';
 import { Government, GovernmentType, Role } from '../entities/Government';
+import { Job } from '../entities/Job';
+import { CrimeSystem, Crime } from '../systems/CrimeSystem';
+import { PoliceSystem } from '../systems/PoliceSystem';
+import { RoutineSystem } from '../systems/RoutineSystem';
 
 // Government constants
 const CITIZEN_RECRUITMENT_PROBABILITY = 0.3; // 30% chance to join nearby government
 
 export interface WorldEvent {
-  type: 'building' | 'birth' | 'government' | 'tax' | 'rebellion';
+  type: 'building' | 'birth' | 'government' | 'tax' | 'rebellion' | 'crime' | 'arrest' | 'job_assigned';
   tick: number;
   data: any;
 }
@@ -49,12 +53,18 @@ export class World {
   private resources: Resource[];
   private landmarks: Landmark[];
   private governments: Government[];
+  private jobs: Job[];
   private config: WorldConfig;
   private tickCount: number;
   private running: boolean;
   private totalBuildings: number;
   private totalBirths: number;
   private events: WorldEvent[];
+  
+  // New systems
+  private crimeSystem: CrimeSystem;
+  private policeSystem: PoliceSystem;
+  private routineSystem: RoutineSystem;
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -63,11 +73,17 @@ export class World {
     this.resources = [];
     this.landmarks = [];
     this.governments = [];
+    this.jobs = [];
     this.tickCount = 0;
     this.running = false;
     this.totalBuildings = 0;
     this.totalBirths = 0;
     this.events = [];
+    
+    // Initialize systems
+    this.crimeSystem = new CrimeSystem();
+    this.policeSystem = new PoliceSystem();
+    this.routineSystem = new RoutineSystem();
   }
 
   initialize(): void {
@@ -82,6 +98,9 @@ export class World {
 
     // Create citizens
     this.createCitizens();
+
+    // Create initial jobs
+    this.createInitialJobs();
   }
 
   private createBoundaries(): void {
@@ -147,6 +166,92 @@ export class World {
           this.config.citizens.visionRange
         );
         this.citizens.push(citizen);
+      }
+    }
+  }
+
+  private createInitialJobs(): void {
+    // Assign some initial jobs to citizens
+    // We'll assign jobs after police stations and other buildings exist
+    
+    // Find police stations
+    const policeStations = this.landmarks.filter(l => l.type === 'police_station');
+    
+    // Find farms
+    const farms = this.landmarks.filter(l => l.type === 'farm');
+    
+    // Find markets
+    const markets = this.landmarks.filter(l => l.type === 'market');
+    
+    // Assign police officers if police stations exist
+    if (policeStations.length > 0) {
+      const unemployedCitizens = this.citizens.filter(c => !c.isEmployed());
+      const numPolice = Math.min(2, unemployedCitizens.length);
+      
+      for (let i = 0; i < numPolice; i++) {
+        const citizen = unemployedCitizens[i];
+        const station = policeStations[i % policeStations.length];
+        const job = new Job('POLICE_OFFICER', station);
+        citizen.assignJob(job);
+        this.jobs.push(job);
+        
+        this.events.push({
+          type: 'job_assigned',
+          tick: this.tickCount,
+          data: {
+            citizen: citizen.emoji,
+            jobType: 'POLICE_OFFICER',
+            location: station.position
+          }
+        });
+      }
+    }
+    
+    // Assign farmers if farms exist
+    if (farms.length > 0) {
+      const unemployedCitizens = this.citizens.filter(c => !c.isEmployed());
+      const numFarmers = Math.min(2, unemployedCitizens.length);
+      
+      for (let i = 0; i < numFarmers; i++) {
+        const citizen = unemployedCitizens[i];
+        const farm = farms[i % farms.length];
+        const job = new Job('FARMER', farm);
+        citizen.assignJob(job);
+        this.jobs.push(job);
+        
+        this.events.push({
+          type: 'job_assigned',
+          tick: this.tickCount,
+          data: {
+            citizen: citizen.emoji,
+            jobType: 'FARMER',
+            location: farm.position
+          }
+        });
+      }
+    }
+    
+    // Assign merchants if markets exist
+    if (markets.length > 0) {
+      const unemployedCitizens = this.citizens.filter(c => !c.isEmployed());
+      const numMerchants = Math.min(1, unemployedCitizens.length);
+      
+      for (let i = 0; i < numMerchants; i++) {
+        const citizen = unemployedCitizens[i];
+        const market = markets[i % markets.length];
+        const job = new Job('MERCHANT', market);
+        citizen.assignJob(job);
+        this.jobs.push(job);
+        
+        this.events.push({
+          type: 'job_assigned',
+          tick: this.tickCount,
+          data: {
+            citizen: citizen.emoji,
+            jobType: 'MERCHANT',
+            location: market.position
+          }
+        });
       }
     }
   }
@@ -321,6 +426,81 @@ export class World {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('[World.tick] Error processing governments:', errorMsg);
+    }
+
+    // Update routine system
+    try {
+      this.routineSystem.update(this.citizens, this.landmarks, this.tickCount);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error in routine system:', errorMsg);
+    }
+
+    // Update crime system
+    try {
+      const newCrimes = this.crimeSystem.update(this.citizens, this.landmarks, this.resources, this.tickCount);
+      
+      // Track crime events
+      for (const crime of newCrimes) {
+        this.events.push({
+          type: 'crime',
+          tick: this.tickCount,
+          data: {
+            crimeType: crime.type,
+            criminal: crime.perpetrator.emoji,
+            location: crime.location,
+            socialCredit: crime.perpetrator.socialCredit
+          }
+        });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error in crime system:', errorMsg);
+    }
+
+    // Update police system
+    try {
+      const crimes = this.crimeSystem.getActiveCrimes();
+      const { arrests, detected } = this.policeSystem.update(this.citizens, this.landmarks, crimes, this.tickCount);
+      
+      // Mark detected crimes
+      for (const crimeId of detected) {
+        this.crimeSystem.detectCrime(crimeId);
+      }
+      
+      // Track arrest events
+      for (const arrestedCitizen of arrests) {
+        this.events.push({
+          type: 'arrest',
+          tick: this.tickCount,
+          data: {
+            criminal: arrestedCitizen.emoji,
+            location: arrestedCitizen.position,
+            socialCredit: arrestedCitizen.socialCredit
+          }
+        });
+        
+        // Resolve associated crimes
+        const crimesToResolve = crimes.filter(c => c.perpetrator.id === arrestedCitizen.id);
+        for (const crime of crimesToResolve) {
+          this.crimeSystem.resolveCrime(crime.id);
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error in police system:', errorMsg);
+    }
+
+    // Release detained citizens whose time is up
+    try {
+      for (const citizen of this.citizens) {
+        if (citizen.isDetained && this.tickCount >= citizen.detentionEndTime) {
+          citizen.releaseFromDetention();
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error releasing detained citizens:', errorMsg);
     }
 
     // Respawn resources with error handling
@@ -744,5 +924,27 @@ export class World {
 
   clearEvents(): void {
     this.events = [];
+  }
+
+  // System access methods
+  getCrimeSystem(): CrimeSystem {
+    return this.crimeSystem;
+  }
+
+  getPoliceSystem(): PoliceSystem {
+    return this.policeSystem;
+  }
+
+  getRoutineSystem(): RoutineSystem {
+    return this.routineSystem;
+  }
+
+  getJobs(): Job[] {
+    return this.jobs;
+  }
+
+  getTimeOfDay(): { hour: number; period: string } {
+    const time = this.routineSystem.getTimeOfDayPublic(this.tickCount);
+    return { hour: time.hour, period: time.period };
   }
 }

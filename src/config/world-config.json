@@ -34,5 +34,40 @@
     "showStats": true,
     "clearConsole": true,
     "frameSkip": 1
+  },
+  "jobs": {
+    "enableJobSystem": true,
+    "initialPoliceOfficers": 2,
+    "initialFarmers": 2,
+    "initialMerchants": 1,
+    "salaryPaymentInterval": 100
+  },
+  "crime": {
+    "enableCrimeSystem": true,
+    "crimeCheckInterval": 10,
+    "theftProbabilityUnemployed": 0.02,
+    "theftProbabilityLowSatisfaction": 0.01,
+    "vandalismProbability": 0.005,
+    "assaultProbability": 0.003,
+    "trespassingProbability": 0.01,
+    "socialCreditStart": 500,
+    "criminalThreshold": 200,
+    "modelCitizenThreshold": 800
+  },
+  "police": {
+    "enablePoliceSystem": true,
+    "detectionRange": 8,
+    "arrestRange": 1,
+    "patrolChangeInterval": 50,
+    "pursuitSpeed": 0.8
+  },
+  "routine": {
+    "enableRoutineSystem": true,
+    "ticksPerHour": 60,
+    "morningStart": 6,
+    "workStart": 9,
+    "workEnd": 17,
+    "eveningEnd": 20,
+    "nightEnd": 6
   }
 }
