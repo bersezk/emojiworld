@@ -39,6 +39,106 @@ header p {
     font-size: 1.1rem;
 }
 
+main {
+    display: flex;
+    gap: 20px;
+}
+
+#main-content {
+    flex: 1;
+}
+
+#activity-sidebar {
+    width: 300px;
+    background: #f9f9f9;
+    border-radius: 10px;
+    padding: 20px;
+    max-height: 700px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#activity-sidebar h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+#activity-log {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.activity-event {
+    background: white;
+    border-left: 3px solid #667eea;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.activity-event.building {
+    border-left-color: #4CAF50;
+}
+
+.activity-event.birth {
+    border-left-color: #FF69B4;
+}
+
+.activity-event.government {
+    border-left-color: #FFC107;
+}
+
+.activity-event.tax {
+    border-left-color: #2196F3;
+}
+
+.activity-event.rebellion {
+    border-left-color: #f44336;
+}
+
+.activity-event-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
+}
+
+.activity-event-icon {
+    font-size: 1.2rem;
+}
+
+.activity-event-details {
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.4;
+}
+
+.activity-event-time {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 5px;
+}
+
 #world-container {
     background: #f5f5f5;
     border: 2px solid #ddd;
@@ -140,4 +240,19 @@ button:disabled {
 #stats-content span {
     font-weight: bold;
     color: #667eea;
+}
+
+@media (max-width: 768px) {
+    main {
+        flex-direction: column;
+    }
+    
+    #activity-sidebar {
+        width: 100%;
+        max-height: 300px;
+    }
+    
+    #world-canvas {
+        max-width: 100%;
+    }
 }

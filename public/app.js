@@ -8,6 +8,8 @@ class EmojiWorldApp {
         this.isRunning = false;
         this.tickInterval = null;
         this.speed = 5;
+        this.activityLog = [];
+        this.maxLogEntries = 100;
         
         this.canvas.width = 800;
         this.canvas.height = 600;
@@ -95,6 +97,8 @@ class EmojiWorldApp {
     async reset() {
         this.pause();
         this.sessionId = null;
+        this.activityLog = [];
+        this.clearActivityLog();
         this.displayWelcome();
         this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0, buildings: 0, births: 0, growthRate: 0 });
     }
@@ -232,13 +236,95 @@ class EmojiWorldApp {
     }
     
     updateActivityLog(events) {
-        // Placeholder - will be implemented in Phase 2
         if (!events || events.length === 0) return;
         
-        // Log events to console for now
+        const logContainer = document.getElementById('activity-log');
+        
         events.forEach(event => {
-            console.log('Event:', event);
+            // Add to log array
+            this.activityLog.push(event);
+            
+            // Keep only last maxLogEntries
+            if (this.activityLog.length > this.maxLogEntries) {
+                this.activityLog.shift();
+            }
+            
+            // Create event element
+            const eventElement = this.createEventElement(event);
+            
+            // Add to top of log
+            logContainer.insertBefore(eventElement, logContainer.firstChild);
+            
+            // Remove old entries from DOM
+            while (logContainer.children.length > this.maxLogEntries) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
         });
+        
+        // Auto-scroll to top to show latest events
+        logContainer.scrollTop = 0;
+    }
+    
+    createEventElement(event) {
+        const eventDiv = document.createElement('div');
+        eventDiv.className = `activity-event ${event.type}`;
+        
+        let icon = '';
+        let title = '';
+        let details = '';
+        
+        switch(event.type) {
+            case 'building':
+                icon = '🏗️';
+                title = `New ${event.data.building}`;
+                details = `${event.data.citizen} built a ${event.data.building} ${event.data.symbol} at (${event.data.position.x}, ${event.data.position.y})`;
+                break;
+                
+            case 'birth':
+                icon = '👶';
+                title = 'New Birth';
+                details = `${event.data.parents[0]} + ${event.data.parents[1]} → ${event.data.offspring} at (${event.data.position.x}, ${event.data.position.y})`;
+                break;
+                
+            case 'government':
+                icon = '🏛️';
+                title = 'Government Formed';
+                details = `${event.data.governmentName} (${event.data.governmentType}) with ${event.data.citizens} citizens at (${event.data.location.x}, ${event.data.location.y})`;
+                break;
+                
+            case 'tax':
+                icon = '💰';
+                title = 'Tax Collection';
+                details = `${event.data.governmentName} collected ${event.data.totalCollected} resources from ${event.data.citizenCount} citizens`;
+                break;
+                
+            case 'rebellion':
+                icon = '⚔️';
+                title = 'Rebellion!';
+                details = `${event.data.citizen} rebelled against ${event.data.governmentName}`;
+                break;
+                
+            default:
+                icon = '📌';
+                title = 'Event';
+                details = JSON.stringify(event.data);
+        }
+        
+        eventDiv.innerHTML = `
+            <div class="activity-event-header">
+                <span class="activity-event-icon">${icon}</span>
+                <span>${title}</span>
+            </div>
+            <div class="activity-event-details">${details}</div>
+            <div class="activity-event-time">Tick ${event.tick}</div>
+        `;
+        
+        return eventDiv;
+    }
+    
+    clearActivityLog() {
+        const logContainer = document.getElementById('activity-log');
+        logContainer.innerHTML = '';
     }
 }
 

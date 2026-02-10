@@ -7,6 +7,12 @@ import { Government, GovernmentType, Role } from '../entities/Government';
 // Government constants
 const CITIZEN_RECRUITMENT_PROBABILITY = 0.3; // 30% chance to join nearby government
 
+export interface WorldEvent {
+  type: 'building' | 'birth' | 'government' | 'tax' | 'rebellion';
+  tick: number;
+  data: any;
+}
+
 export interface WorldConfig {
   world: {
     width: number;
@@ -48,6 +54,7 @@ export class World {
   private running: boolean;
   private totalBuildings: number;
   private totalBirths: number;
+  private events: WorldEvent[];
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -60,6 +67,7 @@ export class World {
     this.running = false;
     this.totalBuildings = 0;
     this.totalBirths = 0;
+    this.events = [];
   }
 
   initialize(): void {
@@ -197,6 +205,18 @@ export class World {
             recipe.symbol
           ));
           this.totalBuildings++;
+          
+          // Track building event
+          this.events.push({
+            type: 'building',
+            tick: this.tickCount,
+            data: {
+              building: citizen.buildingTarget,
+              symbol: recipe.symbol,
+              position: { x: citizen.position.x, y: citizen.position.y },
+              citizen: citizen.emoji
+            }
+          });
         }
         citizen.buildingTarget = null;
       }
@@ -211,6 +231,17 @@ export class World {
             this.citizens.push(offspring);
             citizen.breed(partner, this.tickCount);
             this.totalBirths++;
+            
+            // Track birth event
+            this.events.push({
+              type: 'birth',
+              tick: this.tickCount,
+              data: {
+                parents: [citizen.emoji, partner.emoji],
+                offspring: offspring.emoji,
+                position: { x: offspring.position.x, y: offspring.position.y }
+              }
+            });
           }
         }
       }
@@ -426,6 +457,19 @@ export class World {
     }
     
     this.governments.push(government);
+    
+    // Track government formation event
+    this.events.push({
+      type: 'government',
+      tick: this.tickCount,
+      data: {
+        governmentId: govId,
+        governmentName: govName,
+        governmentType: govType,
+        citizens: government.getCitizenCount(),
+        location: { x: townHall.position.x, y: townHall.position.y }
+      }
+    });
   }
 
   private processGovernments(): void {
@@ -448,6 +492,7 @@ export class World {
   }
 
   private collectTaxes(government: Government): void {
+    let totalTaxesCollected = 0;
     for (const citizenId of government.citizens) {
       const citizen = this.citizens.find(c => c.id === citizenId);
       if (!citizen) continue;
@@ -455,7 +500,22 @@ export class World {
       const taxes = citizen.payTax(government.taxRate, this.tickCount);
       for (const resource of taxes) {
         government.addToTreasury(resource, 1);
+        totalTaxesCollected++;
       }
+    }
+    
+    // Track tax collection event if taxes were collected
+    if (totalTaxesCollected > 0) {
+      this.events.push({
+        type: 'tax',
+        tick: this.tickCount,
+        data: {
+          governmentId: government.id,
+          governmentName: government.name,
+          totalCollected: totalTaxesCollected,
+          citizenCount: government.getCitizenCount()
+        }
+      });
     }
   }
 
@@ -490,6 +550,18 @@ export class World {
       if (citizen.shouldRebel()) {
         citizen.governmentRole = Role.REBEL;
         government.removeCitizen(citizenId);
+        
+        // Track rebellion event
+        this.events.push({
+          type: 'rebellion',
+          tick: this.tickCount,
+          data: {
+            citizen: citizen.emoji,
+            governmentId: government.id,
+            governmentName: government.name,
+            position: { x: citizen.position.x, y: citizen.position.y }
+          }
+        });
       }
     }
   }
@@ -509,5 +581,14 @@ export class World {
         }
       }
     }
+  }
+
+  // Event tracking methods
+  getEvents(): WorldEvent[] {
+    return this.events;
+  }
+
+  clearEvents(): void {
+    this.events = [];
   }
 }
