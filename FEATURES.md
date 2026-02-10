@@ -210,6 +210,40 @@ Priority system for autonomous choices:
 - Clear console
 - Frame skip
 
+**Job System Settings**
+- Enable/disable job system
+- Initial police officers count
+- Initial farmers count
+- Initial merchants count
+- Salary payment interval
+
+**Crime System Settings**
+- Enable/disable crime system
+- Crime check interval
+- Theft probabilities (unemployed vs low satisfaction)
+- Vandalism probability
+- Assault probability
+- Trespassing probability
+- Social credit starting value
+- Criminal threshold
+- Model citizen threshold
+
+**Police System Settings**
+- Enable/disable police system
+- Detection range
+- Arrest range
+- Patrol change interval
+- Pursuit speed
+
+**Routine System Settings**
+- Enable/disable routine system
+- Ticks per hour
+- Morning start hour
+- Work start hour
+- Work end hour
+- Evening end hour
+- Night end hour
+
 ### Configuration Files
 - Default: `src/config/world-config.json`
 - Examples: `examples/small-world-config.json`, `examples/large-world-config.json`
@@ -266,8 +300,243 @@ Watch these patterns emerge naturally:
 3. **Migration Patterns**: Movement toward homes when tired
 4. **Exploration Waves**: Wandering citizens explore systematically
 5. **Supply and Demand**: Resource depletion creates new search patterns
+6. **Crime Waves**: Unemployment and dissatisfaction lead to crime spikes
+7. **Police Response**: Officers patrol and respond to criminal activity
+8. **Economic Cycles**: Jobs create wealth, crime creates enforcement needs
+9. **Daily Rhythms**: Citizens follow work-sleep cycles based on time of day
+10. **Social Credit Dynamics**: Behavior affects status and opportunities
 
-## 📈 Future Potential
+## 💼 Job System Details
+
+### Job Types and Characteristics
+
+**👮 Police Officer**
+- Salary: 15 resources per payment cycle
+- Schedule: 9am-5pm, 7 days/week
+- Behavior: Patrols designated routes, detects and pursues criminals
+- Workplace: Police Station
+- Special: Can arrest criminals within 1 tile range
+
+**👨‍⚕️ Doctor**
+- Salary: 20 resources per payment cycle
+- Schedule: 8am-6pm, 7 days/week
+- Behavior: Stays at hospital, heals nearby citizens
+- Workplace: Town Hall (serves as hospital)
+- Special: Increases health of nearby citizens
+
+**🧑‍🌾 Farmer**
+- Salary: 10 resources per payment cycle
+- Schedule: 6am-2pm, 7 days/week
+- Behavior: Works at farm, produces food resources
+- Workplace: Farm
+- Special: Generates resources while working
+
+**🧑‍💼 Merchant**
+- Salary: 12 resources per payment cycle
+- Schedule: 9am-5pm, 7 days/week
+- Behavior: Stays at market, facilitates trade
+- Workplace: Market
+- Special: Enables resource trading
+
+**🏗️ Builder**
+- Salary: 14 resources per payment cycle
+- Schedule: 7am-4pm, 7 days/week
+- Behavior: Seeks building projects, constructs faster
+- Workplace: Public Works or construction sites
+- Special: Faster building speed
+
+**🧑‍💻 Government Official**
+- Salary: 18 resources per payment cycle
+- Schedule: 9am-5pm, 5 days/week (weekdays)
+- Behavior: Manages government tasks at government buildings
+- Workplace: Any government building
+- Special: Boosts government efficiency
+
+### Job Performance System
+- **Initial Performance**: 70/100 (average)
+- **Performance Effects**: 
+  - Affects actual salary (50% to 150% of base)
+  - Influences citizen satisfaction
+  - Changes slowly based on work quality
+- **Performance Factors**:
+  - Time spent at work
+  - Successful task completion
+  - Random events (good and bad days)
+
+## ⚖️ Crime System Details
+
+### Social Credit Mechanics
+
+**Credit Scale**: 0-1000 points
+- **0-199**: Criminal (high risk)
+- **200-399**: Low credit (watched closely)
+- **400-600**: Normal credit (neutral)
+- **601-800**: Good credit (trusted)
+- **801-1000**: Model citizen (benefits)
+
+**Credit Changes**:
+- Start at 500 (neutral)
+- Good behavior: +1 per 100 ticks when satisfied
+- Model citizens: +1 satisfaction bonus per 100 ticks
+- Crimes: -20 to -100 depending on severity
+- Arrest: Additional -30 penalty
+- Detention: +0.5 per 100 ticks (rehabilitation)
+
+### Crime Triggering
+
+**Theft (🔪)**
+- Probability: 2% if unemployed, 1% if low satisfaction
+- Requirements: Nearby uncollected resources
+- Penalty: -50 social credit
+- Detention: 100 ticks
+
+**Vandalism (💥)**
+- Probability: 0.5% when satisfaction < 20
+- Requirements: Nearby buildings
+- Penalty: -80 social credit
+- Detention: 150 ticks
+
+**Assault (⚔️)**
+- Probability: 0.3% when satisfaction < 15
+- Requirements: Nearby citizens
+- Penalty: -100 social credit
+- Detention: 200 ticks
+- Effect: Victim loses 10 satisfaction
+
+**Trespassing (🚫)**
+- Probability: 1% with low credit
+- Requirements: At government building, not a member
+- Penalty: -20 social credit
+- Detention: 50 ticks
+
+**Tax Evasion (📜)**
+- Automatic: When citizen refuses to pay taxes
+- Penalty: -40 social credit
+- Detention: 80 ticks
+
+### Criminal Behavior
+
+**When citizen becomes criminal (credit < 200)**:
+- Actively avoids police officers
+- May flee when police approach
+- Higher chance of committing more crimes
+- Cannot work certain jobs
+- Reduced satisfaction
+
+**Police Detection**:
+- Police detect crimes within 8 tiles
+- Detection marks crime as "detected"
+- Police pursue nearest detected criminal
+- Pursuit speed: faster than normal movement
+
+**Arrest Process**:
+1. Police officer within 1 tile of criminal
+2. Arrest occurs automatically
+3. Criminal enters "detained" state
+4. Criminal teleported to police station
+5. Detention timer starts
+6. Additional social credit penalty (-30)
+
+**Release Process**:
+1. Detention timer expires
+2. Criminal status: depends on social credit
+3. Small credit restoration (+10)
+4. Released to wander
+5. May rehabilitate with good behavior
+
+## 🕐 Routine System Details
+
+### Time Mechanics
+
+**Time Scale**:
+- 1 tick ≈ 1 minute of simulation time
+- 60 ticks = 1 hour
+- 1440 ticks = 1 full day cycle
+
+**Time Periods**:
+- **Night (8pm-6am)**: Sleep at home, restore energy
+- **Morning (6am-9am)**: Wake up, breakfast, prepare
+- **Work (9am-5pm)**: At job location, working
+- **Evening (5pm-8pm)**: Return home, socialize, relax
+
+### Daily Schedule Examples
+
+**Employed Citizen (Farmer)**:
+- 6:00am - Wake up at home
+- 6:30am - Seek food (breakfast)
+- 7:00am - Commute to farm
+- 7:00am-2:00pm - Work at farm
+- 2:00pm - Commute home
+- 3:00pm - Socialize at park
+- 5:00pm - Dinner at home
+- 8:00pm - Sleep
+
+**Unemployed Citizen**:
+- 6:00am - Wake up
+- 8:00am - Wander/seek resources
+- 12:00pm - Socialize if needs allow
+- 3:00pm - More wandering
+- 8:00pm - Return home to sleep
+
+**Police Officer**:
+- 6:00am - Wake up at home
+- 8:00am - Breakfast
+- 9:00am - Report to police station
+- 9:00am-5:00pm - Patrol routes, respond to crimes
+- 5:00pm - Off duty, return home
+- 6:00pm - Evening activities
+- 8:00pm - Sleep
+
+### Emergency Overrides
+
+Routines can be interrupted by:
+- **Low Hunger (<20)**: Immediately seek food
+- **Low Energy (<20)**: Immediately seek shelter
+- **Crime Detection** (police): Pursue criminal
+- **Being Criminal**: Flee from police
+- **Detention**: Stay in cell
+
+## 🚔 Policing System Details
+
+### Patrol Mechanics
+
+**Patrol Routes**:
+- Circular pattern around police station
+- Radius: 10 tiles
+- 8 waypoints around center
+- Changes every 50 ticks
+
+**Officer Behavior**:
+1. **On Patrol** (no crimes):
+   - Follow patrol route
+   - Check for crimes within detection range
+   - State: "working"
+
+2. **Crime Detected**:
+   - Identify nearest criminal
+   - Set as target
+   - Begin pursuit
+   - State: "commuting" (pursuing)
+
+3. **In Pursuit**:
+   - Move toward criminal
+   - Criminal flees in opposite direction
+   - Arrest if within 1 tile
+   - Give up if distance > 16 tiles
+
+4. **After Arrest**:
+   - Return to patrol route
+   - Look for next criminal
+   - Resume normal patrol
+
+### Police Station Requirements
+
+- Must have at least one Police Station built
+- Officers use nearest station as base
+- Patrol routes centered on station
+- Can have multiple officers per station
+
+## 📊 Configuration Options
 
 ### Planned Enhancements
 - Citizen reproduction and lifecycle
