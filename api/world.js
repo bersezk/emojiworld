@@ -253,16 +253,64 @@ module.exports = async function handler(req, res) {
     // Helper to capture world state snapshot for debugging
     const captureStateSnapshot = () => {
       try {
-        const stats = world.getStats ? world.getStats() : {};
+        let tick = 0;
+        let citizens = 0;
+        let resources = 0;
+        let landmarks = 0;
+        
+        // Safely get stats
+        try {
+          const stats = world.getStats ? world.getStats() : {};
+          tick = stats.tick || 0;
+          citizens = stats.citizens || 0;
+          resources = stats.resources || 0;
+        } catch (e) {
+          // Ignore stats error, try alternative methods
+        }
+        
+        // Fallback to direct method calls
+        if (!tick) {
+          try {
+            tick = world.getTickCount?.() || 0;
+          } catch (e) {
+            // Ignore
+          }
+        }
+        
+        if (!citizens) {
+          try {
+            const citizensList = world.getCitizens?.();
+            citizens = Array.isArray(citizensList) ? citizensList.length : 0;
+          } catch (e) {
+            // Ignore
+          }
+        }
+        
+        if (!resources) {
+          try {
+            const resourcesList = world.getResources?.();
+            resources = Array.isArray(resourcesList) ? resourcesList.length : 0;
+          } catch (e) {
+            // Ignore
+          }
+        }
+        
+        try {
+          const landmarksList = world.getLandmarks?.();
+          landmarks = Array.isArray(landmarksList) ? landmarksList.length : 0;
+        } catch (e) {
+          // Ignore
+        }
+        
         return {
-          tick: stats.tick || sessionData.world.getTickCount?.() || 0,
-          citizens: stats.citizens || world.getCitizens?.().length || 0,
-          resources: stats.resources || world.getResources?.().length || 0,
-          landmarks: world.getLandmarks?.().length || 0,
+          tick,
+          citizens,
+          resources,
+          landmarks,
           timestamp: new Date().toISOString()
         };
       } catch (e) {
-        return { error: 'Failed to capture snapshot', message: e.message };
+        return { error: 'Failed to capture snapshot', message: e instanceof Error ? e.message : String(e) };
       }
     };
 
@@ -281,6 +329,13 @@ module.exports = async function handler(req, res) {
       const grid = world.getGrid();
       if (!grid || typeof grid.getWidth !== 'function' || typeof grid.getHeight !== 'function') {
         throw new Error('Grid instance is invalid or corrupted.');
+      }
+      
+      // Validate grid dimensions are valid positive numbers
+      const width = grid.getWidth();
+      const height = grid.getHeight();
+      if (typeof width !== 'number' || typeof height !== 'number' || width <= 0 || height <= 0) {
+        throw new Error(`Grid dimensions are invalid: width=${width}, height=${height}`);
       }
 
       // Execute tick with enhanced error handling
@@ -311,6 +366,7 @@ module.exports = async function handler(req, res) {
         throw tickError;
       }
 
+      // Get validated dimensions before creating display grid
       const width = grid.getWidth();
       const height = grid.getHeight();
       const citizens = world.getCitizens();

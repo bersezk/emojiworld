@@ -172,7 +172,7 @@ class EmojiWorldApp {
             
             // Log performance warnings
             if (data.executionTime && data.executionTime > 1000) {
-                console.warn(`Slow tick: ${data.executionTime}ms at tick ${data.ticks}`);
+                console.warn(`Slow tick: ${data.executionTime}ms at tick ${data.ticks || data.tick || '?'}`);
             }
             
             this.render(data);

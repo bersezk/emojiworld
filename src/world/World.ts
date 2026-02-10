@@ -178,9 +178,11 @@ export class World {
     this.tickCount++;
 
     // Validate critical state before processing
-    if (!this.grid || !Array.isArray(this.citizens) || !Array.isArray(this.resources) || !Array.isArray(this.landmarks)) {
+    if (!this.grid || typeof this.grid.isValidPosition !== 'function' || 
+        !Array.isArray(this.citizens) || !Array.isArray(this.resources) || !Array.isArray(this.landmarks)) {
       console.error('[World.tick] Critical state validation failed:', {
         hasGrid: !!this.grid,
+        hasIsValidPosition: this.grid && typeof this.grid.isValidPosition === 'function',
         citizensIsArray: Array.isArray(this.citizens),
         resourcesIsArray: Array.isArray(this.resources),
         landmarksIsArray: Array.isArray(this.landmarks),
@@ -218,7 +220,8 @@ export class World {
           landmarks: this.landmarks
         }, this.tickCount);
       } catch (error) {
-        console.error(`[World.tick] Error updating citizen ${citizen.id}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.tick] Error updating citizen ${citizen.id}:`, errorMsg);
         // Continue with other citizens rather than failing entire tick
         continue;
       }
@@ -237,7 +240,8 @@ export class World {
           }
         }
       } catch (error) {
-        console.error(`[World.tick] Error collecting resources for citizen ${citizen.id}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.tick] Error collecting resources for citizen ${citizen.id}:`, errorMsg);
       }
 
       // Check for completed building with validation
@@ -267,7 +271,8 @@ export class World {
           citizen.buildingTarget = null;
         }
       } catch (error) {
-        console.error(`[World.tick] Error processing building for citizen ${citizen.id}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.tick] Error processing building for citizen ${citizen.id}:`, errorMsg);
       }
 
       // Check for breeding opportunity with validation
@@ -297,7 +302,8 @@ export class World {
           }
         }
       } catch (error) {
-        console.error(`[World.tick] Error processing breeding for citizen ${citizen.id}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.tick] Error processing breeding for citizen ${citizen.id}:`, errorMsg);
       }
     }
 
@@ -305,14 +311,16 @@ export class World {
     try {
       this.checkGovernmentFormation();
     } catch (error) {
-      console.error('[World.tick] Error in government formation:', error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error in government formation:', errorMsg);
     }
 
     // Process governments with error handling
     try {
       this.processGovernments();
     } catch (error) {
-      console.error('[World.tick] Error processing governments:', error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error processing governments:', errorMsg);
     }
 
     // Respawn resources with error handling
@@ -328,7 +336,8 @@ export class World {
         }
       }
     } catch (error) {
-      console.error('[World.tick] Error respawning resources:', error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.tick] Error respawning resources:', errorMsg);
     }
   }
 
@@ -505,7 +514,8 @@ export class World {
         try {
           this.formGovernment(townHall, nearbyCitizens);
         } catch (error) {
-          console.error('[World.checkGovernmentFormation] Error forming government:', error.message);
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error('[World.checkGovernmentFormation] Error forming government:', errorMsg);
         }
       }
     }
@@ -581,7 +591,8 @@ export class World {
           this.recruitCitizens(government);
         }
       } catch (error) {
-        console.error(`[World.processGovernments] Error processing government ${government.id}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.processGovernments] Error processing government ${government.id}:`, errorMsg);
       }
     }
   }
@@ -607,7 +618,8 @@ export class World {
           }
         }
       } catch (error) {
-        console.error(`[World.collectTaxes] Error collecting from citizen ${citizenId}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.collectTaxes] Error collecting from citizen ${citizenId}:`, errorMsg);
       }
     }
     
@@ -644,7 +656,8 @@ export class World {
         government.updateSatisfaction(-2);
       }
     } catch (error) {
-      console.error('[World.updateGovernmentSatisfaction] Error updating satisfaction:', error.message);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[World.updateGovernmentSatisfaction] Error updating satisfaction:', errorMsg);
     }
     
     // Update individual citizen satisfaction
@@ -683,7 +696,8 @@ export class World {
           });
         }
       } catch (error) {
-        console.error(`[World.updateGovernmentSatisfaction] Error processing citizen ${citizenId}:`, error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[World.updateGovernmentSatisfaction] Error processing citizen ${citizenId}:`, errorMsg);
       }
     }
   }
@@ -717,7 +731,8 @@ export class World {
           }
         }
       } catch (error) {
-        console.error('[World.recruitCitizens] Error recruiting near building:', error.message);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('[World.recruitCitizens] Error recruiting near building:', errorMsg);
       }
     }
   }
