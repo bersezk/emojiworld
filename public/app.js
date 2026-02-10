@@ -46,6 +46,32 @@ class EmojiWorldApp {
         this.ctx.fillText('Click "Start Simulation" to begin', this.canvas.width / 2, this.canvas.height / 2 + 20);
     }
     
+    showErrorNotification(message) {
+        // Create a temporary overlay notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff6b6b;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 300px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => document.body.removeChild(notification), 300);
+        }, 5000);
+    }
+    
     async start() {
         try {
             if (!this.sessionId) {
@@ -59,12 +85,27 @@ class EmojiWorldApp {
                     })
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`Failed to create world: ${response.statusText}`);
+                // Try to get response body for detailed error info
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    data = { message: text };
                 }
                 
-                const data = await response.json();
+                if (!response.ok) {
+                    const errorMsg = data.message || `Failed to create world: ${response.statusText}`;
+                    const errorDetail = data.detail || '';
+                    const errorAction = data.action || 'Please check if the API is running and try again.';
+                    
+                    throw new Error(`${errorMsg}\n${errorDetail}\n${errorAction}`);
+                }
+                
                 this.sessionId = data.sessionId;
+                console.log('Session created:', this.sessionId);
             }
             
             this.isRunning = true;
@@ -74,7 +115,7 @@ class EmojiWorldApp {
             this.tickInterval = setInterval(() => this.tick(), 1000 / this.speed);
         } catch (error) {
             console.error('Error starting simulation:', error);
-            alert('Failed to start simulation. Please check if the API is running.');
+            alert(error.message || 'Failed to start simulation. Please check if the API is running.');
         }
     }
     
@@ -102,17 +143,65 @@ class EmojiWorldApp {
                 method: 'POST'
             });
             
-            if (!response.ok) {
-                throw new Error(`Tick failed: ${response.statusText}`);
+            // Try to get response body for detailed error info
+            const contentType = response.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                // Fallback for non-JSON responses
+                const text = await response.text();
+                data = { message: text };
             }
             
-            const data = await response.json();
+            if (!response.ok) {
+                // Handle different error scenarios
+                if (response.status === 404) {
+                    // Session not found - attempt recovery
+                    console.warn('Session not found, attempting recovery...', data);
+                    this.pause();
+                    
+                    const errorMsg = data.message || 'Session not found';
+                    const errorDetail = data.detail || 'The session may have expired due to serverless cold start.';
+                    const shouldRecover = confirm(`${errorMsg}\n\n${errorDetail}\n\nWould you like to start a new simulation?`);
+                    
+                    if (shouldRecover) {
+                        await this.reset();
+                        await this.start();
+                    }
+                    return;
+                } else if (response.status >= 500 && response.status < 600) {
+                    // Server error - could be transient, try to continue but warn user
+                    console.error('Server error during tick:', data);
+                    
+                    const errorMsg = data.message || 'Server error occurred';
+                    const errorDetail = data.detail || 'This may be a temporary issue.';
+                    
+                    // Don't stop simulation for transient errors, just log
+                    console.warn(`Continuing simulation despite error: ${errorMsg} - ${errorDetail}`);
+                    
+                    // Show a less intrusive notification
+                    this.showErrorNotification(`${errorMsg}. Attempting to continue...`);
+                    return;
+                }
+                
+                // Other errors - show detailed message and stop
+                const errorMsg = data.message || `Tick failed: ${response.statusText}`;
+                const errorDetail = data.detail || '';
+                const errorAction = data.action || 'Please reset and try again.';
+                
+                throw new Error(`${errorMsg}\n${errorDetail}\n${errorAction}`);
+            }
+            
             this.render(data);
             this.updateStats(data);
         } catch (error) {
             console.error('Error during tick:', error);
             this.pause();
-            alert('Simulation error occurred. Please reset and try again.');
+            
+            // Show detailed error message
+            alert(error.message || 'Simulation error occurred. Please reset and try again.');
         }
     }
     
