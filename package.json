@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/",
     "start": "npm run build && node dist/main.js",
-    "dev": "NODE_NO_WARNINGS=1 tsc && node dist/main.js",
+    "dev": "NODE_NO_WARNINGS=1 sh -c 'tsc && node dist/main.js'",
     "vercel-build": "tsc",
     "vercel-dev": "NODE_NO_WARNINGS=1 vercel dev",
     "test": "echo \"Error: no test specified\" && exit 1"
