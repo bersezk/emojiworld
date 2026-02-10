@@ -148,6 +148,33 @@ Or simply push to GitHub and connect your repository to Vercel:
 
 The web interface will be available at your Vercel URL (e.g., `https://emojiworld.vercel.app`)
 
+## Known Issues
+
+### Node.js Deprecation Warning
+
+You may see this warning during local development:
+
+```
+(node:4) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized...
+```
+
+**This is harmless.** The warning comes from Vercel's internal routing system, not the application code. 
+
+To suppress it during local development:
+
+```bash
+# Use the dev script (warnings suppressed)
+npm run dev
+
+# Or for Vercel local dev
+npm run vercel-dev
+
+# Or manually set the environment variable
+NODE_NO_WARNINGS=1 npm run build
+```
+
+The warning does not affect production deployments on Vercel.
+
 ### Quick Development Run
 
 For faster iteration during development:

@@ -101,6 +101,16 @@ For better performance:
 - Implement session cleanup for inactive worlds
 - Add rate limiting to API endpoints
 
+### Deprecation Warnings
+
+If you see `url.parse()` deprecation warnings during local development:
+
+1. **Use the provided scripts**: `npm run dev` or `npm run vercel-dev` (warnings are suppressed)
+2. **Ignore in production**: The warning doesn't appear in Vercel's production environment
+3. **Root cause**: This is a Vercel infrastructure issue that will be fixed in future runtime updates
+
+The warning is informational and does not affect application functionality.
+
 ## Monitoring
 
 Monitor your deployment:
