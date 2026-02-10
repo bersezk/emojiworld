@@ -543,7 +543,7 @@ module.exports = async function handler(req, res) {
         error: 'INTERNAL_SERVER_ERROR',
         message: 'An unexpected error occurred',
         details: process.env.NODE_ENV === 'development' ? unexpectedError.message : 'Please try again later',
-        hint: 'If this persists, the server may need to be restarted'
+        hint: process.env.NODE_ENV === 'development' ? 'Check server logs for details' : undefined
       });
     }
   }
