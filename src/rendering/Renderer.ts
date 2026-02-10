@@ -93,9 +93,21 @@ export class Renderer {
       console.log('\n🔍 Sample Citizen:');
       console.log(`  ${sample.emoji} (${sample.category})`);
       console.log(`  Position: (${sample.position.x}, ${sample.position.y})`);
-      console.log(`  State: ${sample.state}`);
+      console.log(`  State: ${sample.state} ${sample.getStateSymbol()}`);
+      console.log(`  Routine: ${sample.currentRoutine}`);
       console.log(`  Needs - Hunger: ${sample.needs.hunger.toFixed(1)} Energy: ${sample.needs.energy.toFixed(1)} Social: ${sample.needs.social.toFixed(1)}`);
       console.log(`  Inventory: ${sample.inventory.length} items`);
+      console.log(`  Social Credit: ${sample.socialCredit} ${sample.isCriminal ? '(Criminal)' : sample.isModelCitizen() ? '(Model)' : ''}`);
+      console.log(`  Satisfaction: ${sample.satisfaction.toFixed(0)}`);
+      if (sample.job) {
+        console.log(`  Job: ${sample.job.type} (${sample.job.emoji}) Performance: ${sample.job.performance.toFixed(0)}`);
+      } else {
+        console.log(`  Job: Unemployed`);
+      }
+      if (sample.isDetained) {
+        const remaining = sample.detentionEndTime - world.getTickCount();
+        console.log(`  Detained: ${remaining} ticks remaining`);
+      }
     }
 
     console.log('\n⌨️  Controls: Press Ctrl+C to stop simulation\n');
@@ -127,5 +139,75 @@ export class Renderer {
         console.log(`    Roads Built: ${gov.getRoadCount()}`);
       }
     }
+
+    // Display job system statistics
+    const jobs = world.getJobs();
+    const employed = citizens.filter(c => c.isEmployed());
+    const unemployed = citizens.filter(c => !c.isEmployed());
+    
+    if (jobs.length > 0 || employed.length > 0) {
+      console.log('\n💼 Job System:');
+      console.log(`  Employed Citizens: ${employed.length}/${citizens.length}`);
+      console.log(`  Unemployed: ${unemployed.length}`);
+      
+      // Count by job type
+      const jobCounts: Record<string, number> = {};
+      for (const citizen of employed) {
+        if (citizen.job) {
+          const jobType = citizen.job.type;
+          jobCounts[jobType] = (jobCounts[jobType] || 0) + 1;
+        }
+      }
+      
+      if (Object.keys(jobCounts).length > 0) {
+        console.log('  Job Distribution:');
+        for (const [jobType, count] of Object.entries(jobCounts)) {
+          console.log(`    ${jobType}: ${count}`);
+        }
+      }
+    }
+
+    // Display crime and social credit statistics
+    const crimeSystem = world.getCrimeSystem();
+    const activeCrimes = crimeSystem.getActiveCrimes();
+    const criminals = citizens.filter(c => c.isCriminal);
+    const detained = citizens.filter(c => c.isDetained);
+    const modelCitizens = citizens.filter(c => c.isModelCitizen());
+    
+    const avgSocialCredit = citizens.length > 0
+      ? citizens.reduce((sum, c) => sum + c.socialCredit, 0) / citizens.length
+      : 0;
+    
+    console.log('\n⚖️  Crime & Social Credit:');
+    console.log(`  Active Crimes: ${activeCrimes.length}`);
+    console.log(`  Criminals: ${criminals.length}`);
+    console.log(`  Detained: ${detained.length}`);
+    console.log(`  Model Citizens: ${modelCitizens.length}`);
+    console.log(`  Avg Social Credit: ${avgSocialCredit.toFixed(0)}`);
+    
+    if (activeCrimes.length > 0) {
+      const recentCrimes = activeCrimes.slice(-3);
+      console.log('  Recent Crimes:');
+      for (const crime of recentCrimes) {
+        console.log(`    ${crime.type} by ${crime.perpetrator.emoji} ${crime.detected ? '(detected)' : ''}`);
+      }
+    }
+
+    // Display police system statistics
+    const policeSystem = world.getPoliceSystem();
+    const officers = policeSystem.getOfficers();
+    const onPatrol = officers.filter(o => o.citizen.state === 'working' && !o.targetCriminal);
+    const inPursuit = officers.filter(o => o.targetCriminal !== null);
+    
+    if (officers.length > 0) {
+      console.log('\n🚔 Police System:');
+      console.log(`  Total Officers: ${officers.length}`);
+      console.log(`  On Patrol: ${onPatrol.length}`);
+      console.log(`  In Pursuit: ${inPursuit.length}`);
+    }
+
+    // Display time of day
+    const timeOfDay = world.getTimeOfDay();
+    console.log(`\n🕐 Time: ${timeOfDay.hour}:00 (${timeOfDay.period})`);
   }
 }

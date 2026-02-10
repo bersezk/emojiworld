@@ -1,0 +1,71 @@
+{
+  "world": {
+    "width": 40,
+    "height": 15,
+    "tickRate": 100
+  },
+  "citizens": {
+    "initialCount": 6,
+    "emojiCategories": {
+      "people": ["🧑", "👨", "👩", "🧒", "👴", "👵"]
+    },
+    "movementSpeed": 0.8,
+    "visionRange": 5,
+    "needsDecayRate": 0.1
+  },
+  "landmarks": {
+    "types": {
+      "home": "⌂",
+      "market": "🏪",
+      "park": "🏞️",
+      "boundary": "#"
+    },
+    "initialCount": 3
+  },
+  "resources": {
+    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "initialCount": 15,
+    "respawnRate": 0.02,
+    "maxPerType": 30
+  },
+  "rendering": {
+    "showStats": true,
+    "clearConsole": true,
+    "frameSkip": 1
+  },
+  "jobs": {
+    "enableJobSystem": true,
+    "initialPoliceOfficers": 1,
+    "initialFarmers": 1,
+    "initialMerchants": 1,
+    "salaryPaymentInterval": 100
+  },
+  "crime": {
+    "enableCrimeSystem": true,
+    "crimeCheckInterval": 10,
+    "theftProbabilityUnemployed": 0.05,
+    "theftProbabilityLowSatisfaction": 0.03,
+    "vandalismProbability": 0.01,
+    "assaultProbability": 0.005,
+    "trespassingProbability": 0.02,
+    "socialCreditStart": 500,
+    "criminalThreshold": 200,
+    "modelCitizenThreshold": 800
+  },
+  "police": {
+    "enablePoliceSystem": true,
+    "detectionRange": 8,
+    "arrestRange": 1,
+    "patrolChangeInterval": 50,
+    "pursuitSpeed": 0.8
+  },
+  "routine": {
+    "enableRoutineSystem": true,
+    "ticksPerHour": 20,
+    "morningStart": 6,
+    "workStart": 9,
+    "workEnd": 17,
+    "eveningEnd": 20,
+    "nightEnd": 6
+  }
+}
