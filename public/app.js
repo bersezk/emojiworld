@@ -16,6 +16,7 @@ class EmojiWorldApp {
         
         this.initializeControls();
         this.displayWelcome();
+        this.showEmptyActivityLog();
     }
     
     initializeControls() {
@@ -284,6 +285,12 @@ class EmojiWorldApp {
         
         const logContainer = document.getElementById('activity-log');
         
+        // Remove empty state if it exists
+        const emptyState = logContainer.querySelector('.activity-log-empty');
+        if (emptyState) {
+            emptyState.remove();
+        }
+        
         events.forEach(event => {
             // Add to log array
             this.activityLog.push(event);
@@ -369,6 +376,18 @@ class EmojiWorldApp {
     clearActivityLog() {
         const logContainer = document.getElementById('activity-log');
         logContainer.innerHTML = '';
+        this.showEmptyActivityLog();
+    }
+    
+    showEmptyActivityLog() {
+        const logContainer = document.getElementById('activity-log');
+        logContainer.innerHTML = `
+            <div class="activity-log-empty">
+                <div class="activity-log-empty-icon">📋</div>
+                <div class="activity-log-empty-title">No Activity Yet</div>
+                <div class="activity-log-empty-subtitle">Start the simulation to see events like building construction, births, government formation, and more!</div>
+            </div>
+        `;
     }
 }
 

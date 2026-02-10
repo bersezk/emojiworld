@@ -8,8 +8,22 @@ let World = null;
 
 function getWorld() {
   if (!World) {
-    const worldModule = require(path.join(process.cwd(), 'dist', 'world', 'World'));
-    World = worldModule.World;
+    try {
+      const worldModule = require(path.join(process.cwd(), 'dist', 'world', 'World'));
+      World = worldModule.World;
+      
+      if (!World) {
+        throw new Error('World class not found in module exports');
+      }
+    } catch (error) {
+      console.error('[Module Load] Failed to load World class:', {
+        error: error.message,
+        stack: error.stack,
+        cwd: process.cwd(),
+        expectedPath: path.join(process.cwd(), 'dist', 'world', 'World')
+      });
+      throw new Error(`Failed to load World module: ${error.message}`);
+    }
   }
   return World;
 }
@@ -68,18 +82,19 @@ const defaultConfig = {
 };
 
 module.exports = async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  try {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
 
-  const { sessionId, action } = req.query;
-  const startTime = Date.now();
+    const { sessionId, action } = req.query;
+    const startTime = Date.now();
 
   // Helper function to log errors with context
   const logError = (context, error) => {
@@ -512,5 +527,25 @@ module.exports = async function handler(req, res) {
     message: 'Method not allowed',
     allowedMethods: ['GET', 'POST', 'OPTIONS']
   });
+  } catch (unexpectedError) {
+    // Catch any unhandled errors in the entire handler
+    console.error('[Handler] Unexpected error:', {
+      error: unexpectedError.message,
+      stack: unexpectedError.stack,
+      method: req.method,
+      url: req.url,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Try to send error response if headers haven't been sent
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected error occurred',
+        details: process.env.NODE_ENV === 'development' ? unexpectedError.message : 'Please try again later',
+        hint: process.env.NODE_ENV === 'development' ? 'Check server logs for details' : undefined
+      });
+    }
+  }
 };
 
