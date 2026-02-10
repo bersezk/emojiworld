@@ -169,8 +169,8 @@ npm run dev
 # Or for Vercel local dev
 npm run vercel-dev
 
-# Or manually set the environment variable
-NODE_NO_WARNINGS=1 npm run build
+# Or manually run with the flag
+NODE_OPTIONS='--no-deprecation' node dist/main.js
 ```
 
 The warning does not affect production deployments on Vercel.
