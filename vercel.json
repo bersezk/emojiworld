@@ -1,1 +1,1 @@
-{"buildCommand": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/"}
+{"framework": null, "buildCommand": "npm run build", "installCommand": "npm install"}
