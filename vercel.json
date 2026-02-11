@@ -1,2 +1,1 @@
-{\n  "buildCommand": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/"
-}
+{"buildCommand": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/"}
