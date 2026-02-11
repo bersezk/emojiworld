@@ -618,10 +618,10 @@ export class World {
       buildings: this.totalBuildings,
       births: this.totalBirths,
       growthRate: this.tickCount > 0 ? this.totalBirths / this.tickCount : 0,
-      employed: employed,
-      unemployed: unemployed,
-      police: police,
-      prisoners: prisoners
+      employed,
+      unemployed,
+      police,
+      prisoners
     };
   }
 
