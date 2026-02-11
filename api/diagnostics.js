@@ -1,15 +1,17 @@
 const fs = require('fs');
 const path = require('path');
+const {execSync} = require('child_process');
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     const cwd = process.cwd();
-    const diagnostics = {
-        cwd: cwd,
-        files: {},
-        directories: {}
-    };
-    const pathsToCheck = ['dist', 'dist/world', 'dist/world/World.js'];
+    const diagnostics = {cwd: cwd, buildOutput: null, files: {}, directories: {}};
+    try {
+        diagnostics.buildOutput = execSync('npm run build', {cwd, encoding: 'utf-8'});
+    } catch (e) {
+        diagnostics.buildOutput = 'BUILD_ERROR: ' + e.message;
+    }
+    const pathsToCheck = ['dist', 'dist/world', 'dist/world/World.js', 'src'];
     pathsToCheck.forEach(p => {
         const fullPath = path.join(cwd, p);
         try {
@@ -26,11 +28,7 @@ module.exports = async function handler(req, res) {
                 diagnostics.files[p] = 'EXISTS';
             }
         } catch (err) {
-            if (err.code === 'ENOENT') {
-                diagnostics.files[p] = 'NOT_FOUND';
-            } else {
-                diagnostics.files[p] = 'ERROR: ' + err.message;
-            }
+            diagnostics.files[p] = err.code === 'ENOENT' ? 'NOT_FOUND' : 'ERROR: ' + err.message;
         }
     });
     res.status(200).json(diagnostics);
