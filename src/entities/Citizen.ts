@@ -205,36 +205,41 @@ export class Citizen {
 
   // Update citizen AI each tick
   update(grid: Grid, allEntities: { citizens: Citizen[], resources: Resource[], landmarks: Landmark[] }, tickCount: number): void {
-    // Increment age
-    this.age++;
+    try {
+      // Increment age
+      this.age++;
 
-    // Check if on a road for energy bonus
-    const onRoad = this.isOnRoad(allEntities.landmarks);
-    const energyDecay = onRoad ? 0.015 : 0.03; // 50% less energy on roads
+      // Check if on a road for energy bonus
+      const onRoad = this.isOnRoad(allEntities.landmarks);
+      const energyDecay = onRoad ? 0.015 : 0.03; // 50% less energy on roads
 
-    // Decay needs
-    this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
-    this.needs.energy = Math.max(0, this.needs.energy - 0.05);
-    this.needs.social = Math.max(0, this.needs.social - 0.08);
+      // Decay needs
+      this.needs.hunger = Math.max(0, this.needs.hunger - 0.1);
+      this.needs.energy = Math.max(0, this.needs.energy - 0.05);
+      this.needs.social = Math.max(0, this.needs.social - 0.08);
 
-    // Decay energy (reduced on roads)
-    this.energy = Math.max(0, this.energy - energyDecay);
+      // Decay energy (reduced on roads)
+      this.energy = Math.max(0, this.energy - energyDecay);
 
-    // Handle building progress
-    if (this.isBuilding) {
-      this.updateBuilding(grid, allEntities.landmarks);
-      return; // Don't move while building
-    }
+      // Handle building progress
+      if (this.isBuilding) {
+        this.updateBuilding(grid, allEntities.landmarks);
+        return; // Don't move while building
+      }
 
-    // Decide on action based on state and needs
-    this.decideAction(grid, allEntities, tickCount);
+      // Decide on action based on state and needs
+      this.decideAction(grid, allEntities, tickCount);
 
-    // Move towards target if exists (move faster on roads)
-    this.moveCounter++;
-    const moveThreshold = onRoad ? Math.max(ROAD_SPEED_BOOST_THRESHOLD, this.movementSpeed / 2) : this.movementSpeed;
-    if (this.moveCounter >= moveThreshold) {
-      this.moveCounter = 0;
-      this.move(grid, allEntities.landmarks);
+      // Move towards target if exists (move faster on roads)
+      this.moveCounter++;
+      const moveThreshold = onRoad ? Math.max(ROAD_SPEED_BOOST_THRESHOLD, this.movementSpeed / 2) : this.movementSpeed;
+      if (this.moveCounter >= moveThreshold) {
+        this.moveCounter = 0;
+        this.move(grid, allEntities.landmarks);
+      }
+    } catch (error) {
+      console.error(`Error in citizen update ${this.id}:`, error);
+      // Don't crash, just skip this tick for this citizen
     }
   }
 
@@ -278,30 +283,35 @@ export class Citizen {
   }
 
   private move(grid: Grid, landmarks: Landmark[]): void {
-    if (!this.target) return;
+    try {
+      if (!this.target) return;
 
-    const dx = Math.sign(this.target.x - this.position.x);
-    const dy = Math.sign(this.target.y - this.position.y);
+      const dx = Math.sign(this.target.x - this.position.x);
+      const dy = Math.sign(this.target.y - this.position.y);
 
-    let newPosition: Position;
+      let newPosition: Position;
 
-    // Try to move diagonally first
-    if (dx !== 0 && dy !== 0 && Math.random() > 0.5) {
-      newPosition = { x: this.position.x + dx, y: this.position.y + dy };
-    } else if (Math.abs(this.target.x - this.position.x) > Math.abs(this.target.y - this.position.y)) {
-      newPosition = { x: this.position.x + dx, y: this.position.y };
-    } else {
-      newPosition = { x: this.position.x, y: this.position.y + dy };
-    }
+      // Try to move diagonally first
+      if (dx !== 0 && dy !== 0 && Math.random() > 0.5) {
+        newPosition = { x: this.position.x + dx, y: this.position.y + dy };
+      } else if (Math.abs(this.target.x - this.position.x) > Math.abs(this.target.y - this.position.y)) {
+        newPosition = { x: this.position.x + dx, y: this.position.y };
+      } else {
+        newPosition = { x: this.position.x, y: this.position.y + dy };
+      }
 
-    // Check if new position is valid and walkable
-    if (grid.isValidPosition(newPosition) && this.isWalkable(newPosition, landmarks)) {
-      this.position = newPosition;
-    }
+      // Check if new position is valid and walkable
+      if (grid.isValidPosition(newPosition) && this.isWalkable(newPosition, landmarks)) {
+        this.position = newPosition;
+      }
 
-    // Check if reached target
-    if (this.position.x === this.target.x && this.position.y === this.target.y) {
-      this.onReachTarget(grid, landmarks);
+      // Check if reached target
+      if (this.position.x === this.target.x && this.position.y === this.target.y) {
+        this.onReachTarget(grid, landmarks);
+      }
+    } catch (error) {
+      console.error(`Error moving citizen ${this.id}:`, error);
+      // Stay in place on error
     }
   }
 

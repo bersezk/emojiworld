@@ -57,6 +57,7 @@ export class World {
   private config: WorldConfig;
   private tickCount: number;
   private running: boolean;
+  private maxTicksBeforeCleanup: number = 1000;
   private totalBuildings: number;
   private totalBirths: number;
   private events: WorldEvent[];
@@ -537,6 +538,30 @@ export class World {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error('[World.tick] Error respawning resources:', errorMsg);
     }
+
+    // Periodic cleanup - remove invalid entities every 1000 ticks
+    if (this.tickCount % this.maxTicksBeforeCleanup === 0) {
+      try {
+        this.cleanup();
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('[World.tick] Error during periodic cleanup:', errorMsg);
+      }
+    }
+  }
+
+  private cleanup(): void {
+    // Remove dead or invalid citizens
+    this.citizens = this.citizens.filter(citizen => {
+      return citizen && 
+             citizen.position && 
+             this.grid.isValidPosition(citizen.position);
+    });
+
+    // Remove depleted resources
+    this.resources = this.resources.filter(resource => {
+      return resource && resource.position;
+    });
   }
 
   getGrid(): Grid {

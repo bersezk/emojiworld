@@ -30,6 +30,7 @@ function getWorld() {
 
 // In-memory storage for world instances with metadata
 const worldInstances = new Map(); // Map<sessionId, { world, createdAt, lastAccessedAt, lastGoodState }>
+const sessionLocks = new Map(); // Map<sessionId, boolean> - Prevents concurrent tick operations
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -127,6 +128,7 @@ module.exports = async function handler(req, res) {
     
     for (const sessionId of expiredSessions) {
       worldInstances.delete(sessionId);
+      sessionLocks.delete(sessionId);
       console.log(`[Cleanup] Removed expired session: ${sessionId} (TTL exceeded)`);
     }
     
@@ -139,6 +141,7 @@ module.exports = async function handler(req, res) {
       for (let i = 0; i < sessionsToRemove; i++) {
         const [oldestSessionId] = sortedSessions[i];
         worldInstances.delete(oldestSessionId);
+        sessionLocks.delete(oldestSessionId);
         console.log(`[Cleanup] Removed oldest session: ${oldestSessionId} (LRU eviction)`);
       }
     }
@@ -164,6 +167,7 @@ module.exports = async function handler(req, res) {
     const age = Date.now() - sessionData.lastAccessedAt;
     if (age > SESSION_CONFIG.SESSION_TTL_MS) {
       worldInstances.delete(sessionId);
+      sessionLocks.delete(sessionId);
       return {
         valid: false,
         errorCode: 'SESSION_EXPIRED',
@@ -229,6 +233,7 @@ module.exports = async function handler(req, res) {
         lastAccessedAt: Date.now(),
         lastGoodState: null // Will store last known good state for recovery
       });
+      sessionLocks.set(newSessionId, false); // Initialize lock as unlocked
 
       // Perform session cleanup
       performSessionCleanup();
@@ -262,8 +267,22 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const { sessionData } = validation;
-    const world = sessionData.world;
+    // Check if tick is already in progress (prevent concurrent ticks)
+    if (sessionLocks.get(sessionId)) {
+      return res.status(429).json({
+        error: 'TICK_IN_PROGRESS',
+        message: 'A tick operation is already in progress for this session. Please wait.',
+        hint: 'Concurrent tick operations are not allowed to prevent race conditions.',
+        sessionId
+      });
+    }
+
+    // Acquire lock
+    sessionLocks.set(sessionId, true);
+
+    try {
+      const { sessionData } = validation;
+      const world = sessionData.world;
     
     // Helper to capture world state snapshot for debugging
     const captureStateSnapshot = () => {
@@ -373,7 +392,8 @@ module.exports = async function handler(req, res) {
             ...sessionData.lastGoodState,
             warning: 'RECOVERED_FROM_ERROR',
             warningMessage: 'Simulation encountered an error but recovered using cached state.',
-            errorDetails: process.env.NODE_ENV === 'development' ? tickError.message : undefined
+            errorDetails: process.env.NODE_ENV === 'development' ? tickError.message : undefined,
+            recoverable: true
           });
         }
         
@@ -516,8 +536,12 @@ module.exports = async function handler(req, res) {
         sessionId,
         snapshot: snapshot,
         hint: 'The simulation encountered an error. Try resetting the world. If the problem persists, the world state may be corrupted.',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        recoverable: false
       });
+    } finally {
+      // Always release the lock
+      sessionLocks.set(sessionId, false);
     }
     return;
   }
