@@ -1,6 +1,20 @@
 # Changelog
 
-## [Unreleased] - 2024-02-10
+## [1.1.0] - 2024-02-11
+
+### Added - Employment and Detention Statistics
+- **Employment Tracking**: Display employed vs unemployed citizens in real-time
+- **Police Force Statistics**: Track number of active police officers
+- **Detention System**: Monitor number of detained/imprisoned citizens
+- **Enhanced Stats Panel**: Added four new statistics to the web interface:
+  - 👔 **Employed**: Number of citizens with active jobs
+  - 🚫 **Unemployed**: Number of citizens without jobs
+  - 👮 **Police Officers**: Number of active law enforcement officers
+  - ⛓️ **Prisoners**: Number of detained citizens
+- **Backend Integration**: Statistics computed from citizen employment status and crime system
+- **Real-time Updates**: Employment and detention stats update every simulation tick
+- **Job System Integration**: Employment stats reflect the job assignment system
+- **Crime System Integration**: Detention stats reflect police arrests and imprisonment
 
 ### Added - Error Handling Improvements
 - **Vercel Configuration**: Added function timeout (60s) and memory (1024MB) limits in `vercel.json`

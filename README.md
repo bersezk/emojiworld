@@ -11,7 +11,11 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 - **Console Version**: Terminal-based simulation perfect for servers and CLI enthusiasts
 - **Web Version**: Beautiful browser-based interface with:
   - Stunning gradient backgrounds with floating emoji particles
-  - Animated stat cards with real-time updates
+  - Animated stat cards with real-time updates including:
+    - Population and resource tracking
+    - Building and birth statistics
+    - Employment/unemployment rates
+    - Police force and detention numbers
   - Glow effects on world entities for enhanced visibility
   - Responsive design that works on mobile and desktop
   - Interactive controls with smooth transitions
@@ -119,7 +123,7 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 
 ### 🎮 Real-Time Simulation
 - **Live Updates**: World ticks at configurable intervals (default 200ms)
-- **Statistics Dashboard**: Track population, resources, and citizen states
+- **Statistics Dashboard**: Track population, resources, buildings, employment, and crime statistics in real-time
 - **Sample Citizen View**: Detailed view of a single citizen's status
 
 ## Installation

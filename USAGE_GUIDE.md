@@ -62,7 +62,12 @@ Response:
     "citizens": 25,
     "resources": 12,
     "buildings": 8,
-    "births": 5
+    "births": 5,
+    "growthRate": 0.0333,
+    "employed": 18,
+    "unemployed": 7,
+    "police": 3,
+    "prisoners": 1
   },
   "totalSessions": 3
 }
