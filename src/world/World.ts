@@ -600,7 +600,16 @@ export class World {
     buildings: number;
     births: number;
     growthRate: number;
+    employed: number;
+    unemployed: number;
+    police: number;
+    prisoners: number;
   } {
+    const employed = this.citizens.filter(c => c.isEmployed()).length;
+    const unemployed = this.citizens.length - employed;
+    const police = this.policeSystem.getOfficerCount();
+    const prisoners = this.citizens.filter(c => c.isDetained).length;
+
     return {
       tick: this.tickCount,
       citizens: this.citizens.length,
@@ -608,7 +617,11 @@ export class World {
       resourcesCollected: this.resources.filter(r => r.collected).length,
       buildings: this.totalBuildings,
       births: this.totalBirths,
-      growthRate: this.tickCount > 0 ? this.totalBirths / this.tickCount : 0
+      growthRate: this.tickCount > 0 ? this.totalBirths / this.tickCount : 0,
+      employed: employed,
+      unemployed: unemployed,
+      police: police,
+      prisoners: prisoners
     };
   }
 
