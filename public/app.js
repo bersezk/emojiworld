@@ -101,7 +101,7 @@ class EmojiWorldApp {
         this.activityLog = [];
         this.clearActivityLog();
         this.displayWelcome();
-        this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0, buildings: 0, births: 0, growthRate: 0 });
+        this.updateStats({ population: 0, resources: 0, landmarks: 0, ticks: 0, buildings: 0, births: 0, growthRate: 0, employed: 0, unemployed: 0, police: 0, prisoners: 0 });
     }
     
     async tick() {
@@ -272,6 +272,10 @@ class EmojiWorldApp {
         document.getElementById('buildings').textContent = data.buildings || 0;
         document.getElementById('births').textContent = data.births || 0;
         document.getElementById('growth-rate').textContent = (data.growthRate || 0).toFixed(4);
+        document.getElementById('employed').textContent = data.employed || 0;
+        document.getElementById('unemployed').textContent = data.unemployed || 0;
+        document.getElementById('police').textContent = data.police || 0;
+        document.getElementById('prisoners').textContent = data.prisoners || 0;
         document.getElementById('ticks').textContent = data.ticks || 0;
     }
     
