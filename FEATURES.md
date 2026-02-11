@@ -149,6 +149,13 @@ Priority system for autonomous choices:
 2. **Active Citizens**: Number of emoji agents
 3. **Available Resources**: Collectible items in world
 4. **Resources Collected**: Total gathered by citizens
+5. **Buildings Built**: Total structures constructed by citizens
+6. **Total Births**: Number of new citizens born through reproduction
+7. **Growth Rate**: Births per tick ratio
+8. **Employed Citizens**: Number of citizens with active jobs
+9. **Unemployed Citizens**: Number of citizens without jobs
+10. **Police Officers**: Number of active law enforcement officers
+11. **Prisoners**: Number of detained/imprisoned citizens
 
 ### Citizen State Tracking
 - Distribution of citizens across states
