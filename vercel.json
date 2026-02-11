@@ -1,1 +1,2 @@
-{"version":2,"buildCommand":"npm run build","installCommand":"npm install","functions":{"api/world.js":{"maxDuration":60,"memory":1024}}}
+{\n  "buildCommand": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/"
+}
