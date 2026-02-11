@@ -6,8 +6,9 @@
   "scripts": {
     "build": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/",
     "start": "npm run build && node dist/main.js",
-    "dev": "tsc && node dist/main.js",
+    "dev": "tsc && NODE_OPTIONS='--no-deprecation' node dist/main.js",
     "vercel-build": "tsc",
+    "vercel-dev": "NODE_OPTIONS='--no-deprecation' vercel dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
