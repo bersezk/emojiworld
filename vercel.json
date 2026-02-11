@@ -1,1 +1,1 @@
-{"installCommand": "npm install && npm run build"}
+{"buildCommand": "tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/"}
