@@ -62,6 +62,50 @@ EmojiWorld is a console-based and web-based 2D simulation where emoji characters
 - **Satisfaction**: Citizens track happiness with their government
 - **Rebellion**: Dissatisfied citizens may rebel and leave government
 
+### 💼 Job System
+- **Employment**: Citizens can work various jobs with salaries and schedules
+- **Job Types**:
+  - **👮 Police Officer**: Patrols areas, detects crimes, arrests criminals
+  - **👨‍⚕️ Doctor**: Heals citizens and increases health
+  - **🧑‍🌾 Farmer**: Produces food resources at farms
+  - **🧑‍💼 Merchant**: Trades resources at markets
+  - **🏗️ Builder**: Constructs buildings more efficiently
+  - **🧑‍💻 Government Official**: Manages government tasks
+- **Work Schedules**: Jobs have specific working hours (e.g., 9am-5pm)
+- **Salaries**: Citizens earn resources from their jobs
+- **Performance**: Job performance affects satisfaction and earnings
+
+### 🚔 Policing System
+- **Law Enforcement**: Police officers actively patrol designated areas
+- **Crime Detection**: Police detect crimes within vision range
+- **Pursuit**: Officers chase criminals when crimes are detected
+- **Arrests**: Police can arrest criminals within range
+- **Detention**: Arrested criminals are detained at police stations
+- **Release**: Criminals are released after serving time, with partial social credit restoration
+
+### ⚖️ Crime & Social Credit System
+- **Social Credit Score**: Each citizen has a score (0-1000, starts at 500)
+- **Criminal Status**: Low credit (<200) = criminal, High credit (>800) = model citizen
+- **Crime Types**:
+  - **💰 Theft**: Stealing resources (-50 credit)
+  - **💥 Vandalism**: Destroying buildings (-80 credit)
+  - **⚔️ Assault**: Attacking other citizens (-100 credit)
+  - **🚫 Trespassing**: Entering restricted areas (-20 credit)
+  - **📜 Tax Evasion**: Not paying taxes (-40 credit)
+- **Motivation**: Low satisfaction and unemployment increase crime likelihood
+- **Consequences**: Criminals avoid police and may be arrested
+- **Rehabilitation**: Detention and good behavior slowly restore social credit
+
+### 🕐 Daily Routine System
+- **Time-Based Activities**: Citizens follow daily schedules based on time of day
+- **Schedule Phases**:
+  - **Morning (6am-9am)**: Wake up, eat breakfast, prepare for work
+  - **Work Hours (9am-5pm)**: At job location, perform job tasks
+  - **Evening (5pm-8pm)**: Return home, socialize, relax
+  - **Night (8pm-6am)**: Sleep at home, restore energy
+- **Job-Specific Routines**: Different jobs have unique behaviors during work hours
+- **Emergency Override**: Critical needs (hunger/energy) take priority over routines
+
 ### 🏛️ Symbol-Based Landmarks
 - **Home (⌂)**: Resting places where citizens restore energy
 - **Market (🏪)**: Gathering points for resources

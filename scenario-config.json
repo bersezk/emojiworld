@@ -1,18 +1,16 @@
 {
   "world": {
-    "width": 80,
-    "height": 24,
-    "tickRate": 200
+    "width": 50,
+    "height": 20,
+    "tickRate": 150
   },
   "citizens": {
-    "initialCount": 10,
+    "initialCount": 8,
     "emojiCategories": {
-      "people": ["🧑", "👨", "👩", "🧒", "👴", "👵"],
-      "animals": ["🐕", "🐈", "🐦", "🐰", "🐻", "🦊"],
-      "food": ["🍎", "🍌", "🍕", "🍔", "🍞", "🥕"]
+      "people": ["🧑", "👨", "👩", "🧒"]
     },
-    "movementSpeed": 1,
-    "visionRange": 5,
+    "movementSpeed": 0.7,
+    "visionRange": 6,
     "needsDecayRate": 0.1
   },
   "landmarks": {
@@ -22,13 +20,13 @@
       "park": "🏞️",
       "boundary": "#"
     },
-    "initialCount": 8
+    "initialCount": 4
   },
   "resources": {
-    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-    "initialCount": 30,
-    "respawnRate": 0.01,
-    "maxPerType": 50
+    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "initialCount": 20,
+    "respawnRate": 0.03,
+    "maxPerType": 40
   },
   "rendering": {
     "showStats": true,
@@ -38,32 +36,32 @@
   "jobs": {
     "enableJobSystem": true,
     "initialPoliceOfficers": 2,
-    "initialFarmers": 2,
+    "initialFarmers": 1,
     "initialMerchants": 1,
     "salaryPaymentInterval": 100
   },
   "crime": {
     "enableCrimeSystem": true,
-    "crimeCheckInterval": 10,
-    "theftProbabilityUnemployed": 0.02,
-    "theftProbabilityLowSatisfaction": 0.01,
-    "vandalismProbability": 0.005,
-    "assaultProbability": 0.003,
-    "trespassingProbability": 0.01,
+    "crimeCheckInterval": 5,
+    "theftProbabilityUnemployed": 0.08,
+    "theftProbabilityLowSatisfaction": 0.05,
+    "vandalismProbability": 0.02,
+    "assaultProbability": 0.01,
+    "trespassingProbability": 0.03,
     "socialCreditStart": 500,
     "criminalThreshold": 200,
     "modelCitizenThreshold": 800
   },
   "police": {
     "enablePoliceSystem": true,
-    "detectionRange": 8,
+    "detectionRange": 10,
     "arrestRange": 1,
-    "patrolChangeInterval": 50,
-    "pursuitSpeed": 0.8
+    "patrolChangeInterval": 40,
+    "pursuitSpeed": 0.6
   },
   "routine": {
     "enableRoutineSystem": true,
-    "ticksPerHour": 60,
+    "ticksPerHour": 30,
     "morningStart": 6,
     "workStart": 9,
     "workEnd": 17,

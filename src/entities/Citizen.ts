@@ -2,10 +2,13 @@ import { Position, Grid } from '../world/Grid';
 import { Resource } from './Resource';
 import { Landmark } from './Landmark';
 import { Role } from './Government';
+import { Job, JobType } from './Job';
 
-export type CitizenState = 'wandering' | 'seeking_resource' | 'seeking_shelter' | 'resting' | 'socializing' | 'building' | 'seeking_mate';
+export type CitizenState = 'wandering' | 'seeking_resource' | 'seeking_shelter' | 'resting' | 'socializing' | 'building' | 'seeking_mate' | 'working' | 'commuting' | 'detained' | 'fleeing';
 export type CitizenCategory = 'people' | 'animals' | 'food';
 export type BuildingType = 'HOME' | 'STORAGE' | 'MEETING' | 'FARM' | 'WALL' | 'HORIZONTAL_ROAD' | 'VERTICAL_ROAD' | 'INTERSECTION' | 'TOWN_HALL' | 'COURTHOUSE' | 'TREASURY' | 'POLICE_STATION' | 'PUBLIC_WORKS';
+
+export type RoutineState = 'sleeping' | 'waking_up' | 'commuting_to_work' | 'working' | 'commuting_home' | 'evening_activities' | 'preparing_sleep';
 
 export interface CitizenNeeds {
   hunger: number;      // 0-100
@@ -134,6 +137,14 @@ export class Citizen {
   public loyaltyToGov: number;
   public lastTaxTime: number;
 
+  // Job system
+  public job: Job | null;
+  public socialCredit: number;
+  public isCriminal: boolean;
+  public isDetained: boolean;
+  public detentionEndTime: number;
+  public currentRoutine: RoutineState;
+
   private moveCounter: number;
 
   constructor(
@@ -182,6 +193,14 @@ export class Citizen {
     this.satisfaction = 70;
     this.loyaltyToGov = 50;
     this.lastTaxTime = -100;
+
+    // Initialize job system properties
+    this.job = null;
+    this.socialCredit = 500; // Start at neutral (0-1000 scale)
+    this.isCriminal = false;
+    this.isDetained = false;
+    this.detentionEndTime = 0;
+    this.currentRoutine = 'sleeping';
   }
 
   // Update citizen AI each tick
@@ -405,6 +424,10 @@ export class Citizen {
       case 'resting': return '💤';
       case 'building': return '🔨';
       case 'seeking_mate': return '❤️';
+      case 'working': return '💼';
+      case 'commuting': return '🚶';
+      case 'detained': return '🔒';
+      case 'fleeing': return '🏃';
       default: return '🚶';
     }
   }
@@ -655,5 +678,64 @@ export class Citizen {
            this.satisfaction < 20 && 
            this.loyaltyToGov < 20 && 
            Math.random() < REBELLION_CHANCE_PER_TICK;
+  }
+
+  // Job system methods
+  assignJob(job: Job): void {
+    this.job = job;
+    this.satisfaction = Math.min(100, this.satisfaction + 10);
+  }
+
+  removeJob(): void {
+    this.job = null;
+    this.satisfaction = Math.max(0, this.satisfaction - 5);
+  }
+
+  isEmployed(): boolean {
+    return this.job !== null && this.job.type !== 'UNEMPLOYED';
+  }
+
+  commitCrime(crimeType: string, creditLoss: number): void {
+    this.socialCredit = Math.max(0, this.socialCredit - creditLoss);
+    
+    if (this.socialCredit < 200) {
+      this.isCriminal = true;
+    }
+    
+    // Decrease satisfaction when committing crime (desperation)
+    this.satisfaction = Math.max(0, this.satisfaction - 5);
+  }
+
+  getArrested(detentionTicks: number, currentTick: number): void {
+    this.isDetained = true;
+    this.detentionEndTime = currentTick + detentionTicks;
+    this.state = 'detained';
+    
+    // Additional social credit penalty for being caught
+    this.socialCredit = Math.max(0, this.socialCredit - 30);
+  }
+
+  releaseFromDetention(): void {
+    this.isDetained = false;
+    this.detentionEndTime = 0;
+    this.state = 'wandering';
+    
+    // Slowly restore some social credit
+    this.socialCredit = Math.min(1000, this.socialCredit + 10);
+  }
+
+  updateSocialCredit(delta: number): void {
+    this.socialCredit = Math.max(0, Math.min(1000, this.socialCredit + delta));
+    
+    // Update criminal status based on social credit
+    this.isCriminal = this.socialCredit < 200;
+  }
+
+  performRoutine(routine: RoutineState): void {
+    this.currentRoutine = routine;
+  }
+
+  isModelCitizen(): boolean {
+    return this.socialCredit > 800;
   }
 }

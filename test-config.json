@@ -1,17 +1,15 @@
 {
   "world": {
-    "width": 80,
-    "height": 24,
-    "tickRate": 200
+    "width": 40,
+    "height": 15,
+    "tickRate": 100
   },
   "citizens": {
-    "initialCount": 10,
+    "initialCount": 6,
     "emojiCategories": {
-      "people": ["🧑", "👨", "👩", "🧒", "👴", "👵"],
-      "animals": ["🐕", "🐈", "🐦", "🐰", "🐻", "🦊"],
-      "food": ["🍎", "🍌", "🍕", "🍔", "🍞", "🥕"]
+      "people": ["🧑", "👨", "👩", "🧒", "👴", "👵"]
     },
-    "movementSpeed": 1,
+    "movementSpeed": 0.8,
     "visionRange": 5,
     "needsDecayRate": 0.1
   },
@@ -22,13 +20,13 @@
       "park": "🏞️",
       "boundary": "#"
     },
-    "initialCount": 8
+    "initialCount": 3
   },
   "resources": {
-    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-    "initialCount": 30,
-    "respawnRate": 0.01,
-    "maxPerType": 50
+    "types": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "initialCount": 15,
+    "respawnRate": 0.02,
+    "maxPerType": 30
   },
   "rendering": {
     "showStats": true,
@@ -37,19 +35,19 @@
   },
   "jobs": {
     "enableJobSystem": true,
-    "initialPoliceOfficers": 2,
-    "initialFarmers": 2,
+    "initialPoliceOfficers": 1,
+    "initialFarmers": 1,
     "initialMerchants": 1,
     "salaryPaymentInterval": 100
   },
   "crime": {
     "enableCrimeSystem": true,
     "crimeCheckInterval": 10,
-    "theftProbabilityUnemployed": 0.02,
-    "theftProbabilityLowSatisfaction": 0.01,
-    "vandalismProbability": 0.005,
-    "assaultProbability": 0.003,
-    "trespassingProbability": 0.01,
+    "theftProbabilityUnemployed": 0.05,
+    "theftProbabilityLowSatisfaction": 0.03,
+    "vandalismProbability": 0.01,
+    "assaultProbability": 0.005,
+    "trespassingProbability": 0.02,
     "socialCreditStart": 500,
     "criminalThreshold": 200,
     "modelCitizenThreshold": 800
@@ -63,7 +61,7 @@
   },
   "routine": {
     "enableRoutineSystem": true,
-    "ticksPerHour": 60,
+    "ticksPerHour": 20,
     "morningStart": 6,
     "workStart": 9,
     "workEnd": 17,
