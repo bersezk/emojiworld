@@ -1,1 +1,11 @@
-{"framework": null, "buildCommand": "npm run build", "installCommand": "npm install"}
+{
+  "framework": null,
+  "buildCommand": "npm exec tsc -- && mkdir -p dist/config && cp src/config/world-config.json dist/config/",
+  "installCommand": "npm install",
+  "functions": {
+    "api/world.js": {
+      "maxDuration": 60,
+      "memory": 3008
+    }
+  }
+}

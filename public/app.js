@@ -106,13 +106,22 @@ class EmojiWorldApp {
     
     async tick() {
         try {
+            console.log('[DEBUG] Starting tick, sessionId:', this.sessionId);
+            
             const response = await fetch(`/api/world/${this.sessionId}/tick`, {
                 method: 'POST'
             });
             
+            console.log('[DEBUG] Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                contentType: response.headers.get('content-type')
+            });
+            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error('Tick error response:', errorData);
+                console.error('[DEBUG] Error response data:', errorData);
                 
                 // Handle session not found or expired - attempt recovery
                 if (response.status === 404 || 
@@ -180,6 +189,11 @@ class EmojiWorldApp {
             this.updateStats(data);
             this.updateActivityLog(data.events || []);
         } catch (error) {
+            console.error('[DEBUG] Exception in tick:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
             console.error('Error during tick:', error);
             this.pause();
             
