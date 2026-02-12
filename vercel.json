@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "npm exec tsc -- && mkdir -p dist/config && cp src/config/world-config.json dist/config/",
+  "buildCommand": "npx tsc && mkdir -p dist/config && cp src/config/world-config.json dist/config/",
   "installCommand": "npm install",
   "functions": {
     "api/world.js": {
