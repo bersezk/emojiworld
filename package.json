@@ -1,1 +1,12 @@
-{"name": "emojiworld","version": "1.1.0","description": "An autonomous 2D world simulation with emoji AI citizens.","main": "dist/main.js","scripts": {"build": "npm exec tsc -- && mkdir -p dist/config && cp src/config/world-config.json dist/config/","start": "npm run build && node dist/main.js","dev": "npm exec tsc -- && NODE_OPTIONS='--no-deprecation' node dist/main.js","vercel-build": "npm exec tsc --","vercel-dev": "NODE_OPTIONS='--no-deprecation' vercel dev","test": "echo \"Error: no test specified\" && exit 1"},"repository": {"type": "git","url": "git+https://github.com/bersezk/emojiworld.git"},"keywords": [],"author": "","license": "ISC","type": "commonjs","bugs": {"url": "https://github.com/bersezk/emojiworld/issues"},"homepage": "https://github.com/bersezk/emojiworld#readme","dependencies": {"typescript": "^5.9.3","@types/node": "^25.2.2"}}
+{
+  "name": "emojiworld",
+  "version": "1.0.0",
+  "description": "A repository of emoji",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "npx tsc"
+  },
+  "author": "bersezk",
+  "license": "ISC"
+}
