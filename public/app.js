@@ -122,7 +122,6 @@ class EmojiWorldApp {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 console.error('[DEBUG] Error response data:', errorData);
-                console.error('Tick error response:', errorData);
                 
                 // Handle session not found or expired - attempt recovery
                 if (response.status === 404 || 
